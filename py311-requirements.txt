@@ -1,0 +1,16 @@
+torch
+torchaudio
+torchvision
+ultralytics==8.3.67
+ultralytics-thop==2.0.14
+scipy
+scikit-learn
+paddlehub
+paddlepaddle
+rich
+pycryptodome
+PyAutoGUI
+protobuf==3.20.2
+pandas
+multiprocess
+matplotlib

@@ -1,0 +1,43 @@
+{
+    "showLogger": false,
+    "moveMouse": true,
+    "useOBS": false,
+    "verbose": false,
+    "epochInterval": 8,
+    "optimizeQuantization": 1,
+    "mouseSpeed": 500,
+    "environment": false,
+    "afkWindow": {
+        "leftTopOffset": [
+            -10,
+            -13
+        ],
+        "rightBottomOffset": [
+            271,
+            343
+        ]
+    },
+    "yoloConfig": {
+        "model": "./models/afk-seg-new.pt"
+    },
+    "paddleConfig": {
+        "model": "./models/ch_pp_ocrv3"
+    },
+    "opencvConfig": {
+        "startExtraLarge": 10,
+        "bounds": [
+            112,
+            205
+        ],
+        "recommendedBounds": [
+            [
+                112,
+                205
+            ],
+            [
+                90,
+                205
+            ]
+        ]
+    }
+}
