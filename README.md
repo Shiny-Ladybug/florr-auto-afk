@@ -1,10 +1,56 @@
-# florr auto afk
+# florr auto afk (v1.0.5 pr)
 
 > As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
+
+> [!CAUTION]
+> At 2025/02/07, m28 nerfed egg and increase the difficulty of AFK Checks, however, keep using this script may result in a BAN
+
+## Config
+
+At `config.json`
+
+* `runningCountDown(min)` 
+
+  Set it to `-1` to let the script run endlessly untill you press `^C` 
+
+  Or set it to a Positive Number to run for a definite time
+
+* `useOBS`
+
+  Just for fun. Set OBS Start hotkey to `Ctrl Alt Shift O` and End hotkey to `Ctrl Alt Shift P` to capture the amazing moment of passing AFK Checks.
+
+* `moveAfterAFK`
+
+  Make the player move a bit `wasd` after checks to prevent `Moving Checks`
+
+* `epochInterval`
+
+  How many seconds should the program sleep after one check. Decrease this value if you have anxiety disorders
+
+* `actionAfterAFK`
+
+  * `type` [attack | defend]
+
+  * `method`
+
+    Set value to 0 for `Alt Tab` Glitch (Deprecated)
+
+    Set value to 1 for program-side mouse down.
+    > [!IMPORTANT]  
+    > May cause in a BAN
+  
+* `extraBinary` 
+
+  If you have something to excute before or after AFK Checks detected, you can write the executables path here.
+
+I DO NOT RECOMMEND CHANGING THE REST OF THE VALUES, CHANGING THOSE MAY CAUSE ISSUE IN PROGRAM
+
+I WONT EXPLAIN THEM NOW, FOR I HAVE TO SLEEP RIGHT AWAY.
+
 ## How it works
 
-1. Use PaddleOCR to detect if the screen contains "AFK Check"
+1. Use PaddleOCR to detect if the screen contains "AFK Check" (deprecated as m28 could send a window contain no "AFK Check" text)
 
    OCR model using `ch_pp_ocrv3`
 
@@ -24,7 +70,7 @@
            }
            for (const {prototype} of getCompatibleCanvas()) {
                prototype.fillText = function (text, x, y) {
-                   handlerAFK(text, this);
+                   // DO SOMETHING NASTY
                    return this[idSymbol](text, x, y);
                }
                prototype.fillText.toString = () => 'function toString() { [native code] }';
