@@ -4,7 +4,11 @@
 
 
 > [!CAUTION]
-> At 2025/02/07, m28 nerfed egg and increase the difficulty of AFK Checks, however, keep using this script may result in a BAN
+> On 2025/02/07, m28 nerfed egg and increase the difficulty of AFK Checks, however, keep using this script may result in a BAN
+
+## INFO
+
+I won't put the latest obfuscated code here for some reason. Use this script in RELEASE.
 
 ## Config
 
