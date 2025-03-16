@@ -1,43 +1,28 @@
 {
+    "runningCountDown(min)": -1,
     "showLogger": false,
     "moveMouse": true,
     "useOBS": false,
-    "verbose": false,
+    "verbose": true,
+    "moveAfterAFK": false,
     "epochInterval": 8,
+    "executeBinary": {
+        "runBeforeAFK": "",
+        "runAfterAFK": ""
+    },
     "optimizeQuantization": 1,
-    "mouseSpeed": 500,
-    "environment": false,
-    "afkWindow": {
-        "leftTopOffset": [
-            -10,
-            -13
-        ],
-        "rightBottomOffset": [
-            271,
-            343
-        ]
-    },
+    "rdpEpsilon": 5,
+    "extendLength": 30,
+    "mouseSpeed": 100,
+    "skipUpdate": false,
+    "environment": true,
+    "windowSizeTolerance": 0.1,
+    "windowSizeRatio": [
+        0.787,
+        1
+    ],
     "yoloConfig": {
-        "model": "./models/afk-seg-new.pt"
-    },
-    "paddleConfig": {
-        "model": "./models/ch_pp_ocrv3"
-    },
-    "opencvConfig": {
-        "startExtraLarge": 10,
-        "bounds": [
-            112,
-            205
-        ],
-        "recommendedBounds": [
-            [
-                112,
-                205
-            ],
-            [
-                90,
-                205
-            ]
-        ]
+        "segModel": "./models/afk-seg.pt",
+        "detModel": "./models/afk-det.pt"
     }
 }

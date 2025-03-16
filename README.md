@@ -1,4 +1,4 @@
-# florr auto afk (v1.0.5 pr)
+# florr auto afk (v1.0.7) (2025-03-16 Update)
 
 > As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
@@ -9,6 +9,8 @@
 ## INFO
 
 I won't put the latest obfuscated code here for some reason. Use this script in RELEASE.
+
+If you want to boot this without an `Internet Connection`, try to set `skipUpdate` in `config.json` to `true`.
 
 ## Config
 
@@ -32,18 +34,6 @@ At `config.json`
 
   How many seconds should the program sleep after one check. Decrease this value if you have anxiety disorders
 
-* `actionAfterAFK`
-
-  * `type` [attack | defend]
-
-  * `method`
-
-    Set value to 0 for `Alt Tab` Glitch (Deprecated)
-
-    Set value to 1 for program-side mouse down.
-    > [!IMPORTANT]  
-    > May cause in a BAN
-  
 * `extraBinary` 
 
   If you have something to excute before or after AFK Checks detected, you can write the executables path here.
@@ -51,6 +41,10 @@ At `config.json`
 I DO NOT RECOMMEND CHANGING THE REST OF THE VALUES, CHANGING THOSE MAY CAUSE ISSUE IN PROGRAM
 
 I WONT EXPLAIN THEM NOW, FOR I HAVE TO SLEEP RIGHT AWAY.
+
+# Gallery
+
+![img](./imgs/gallery.png)
 
 ## How it works
 
@@ -87,7 +81,9 @@ I WONT EXPLAIN THEM NOW, FOR I HAVE TO SLEEP RIGHT AWAY.
 
    For specified reasons, I do not recommend using internal scripts (for unknown BAN results). I'd like doing all these tasks by Python.
 
-2. Trying using yolo model to separate the mouse path.
+   So I used a YOLO model `afk-det.pt` to detect the AFK Check windows.
+
+2. Trying using yolo model `afk-seg`.pt to separate the mouse path.
 
    ![results.png](./imgs/results.png)
 
@@ -111,11 +107,11 @@ I'll put the obfuscated version here.
 
 * Why it is obfuscated?
 
-  > 不可抗力因素
+  > Can't tell.
 
 Anyway, the release version is only for **WINDOWS** and **CPU ONLY** users.
 
-You can build your own GPU version here by installing `torch-gpu` and `paddlepaddle-gpu`
+You can build your own GPU version here by installing `torch-gpu`.
 
 ## Issues
 
