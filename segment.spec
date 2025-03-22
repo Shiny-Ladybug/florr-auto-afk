@@ -5,7 +5,7 @@ a = Analysis(
     ['./segment.py'],
     pathex=[],
     binaries=[],
-    datas=[('./config.json', '..'), ('./latest.log', '..'), ('./images', '../images/'), ('./models', '../models/')],
+    datas=[],
     hiddenimports=['shapely', 'pyclipper', 'pyscreeze', 'pytweening', 'pymsgbox'],
     hookspath=[],
     hooksconfig={},
