@@ -1,3 +1,4 @@
+from constants import *
 import requests
 from tqdm import tqdm
 from matplotlib import use
@@ -16,6 +17,7 @@ from scipy.spatial import distance
 import multiprocessing
 from re import match
 from rdp import rdp
+from traceback import print_exc
 
 multiprocessing.freeze_support()
 
@@ -23,9 +25,6 @@ console = Console()
 
 use('Agg')
 
-VERSION_INFO = "1.0.7"
-VERSION_TYPE = "Release"
-RELEASE_DATE = "2025-03-16 14:26:34"
 
 print(f"florr-auto-afk v{VERSION_INFO}({VERSION_TYPE}) {RELEASE_DATE}")
 
@@ -67,6 +66,20 @@ def log(event: str, type: str, show: bool = True, save: bool = True):
             f.write(f'{logger}\n')
 
 
+def initiate():
+    if not path.exists("./models"):
+        mkdir("./models")
+    if not path.exists("./images"):
+        mkdir("./images")
+    if not path.exists("./latest.log"):
+        with open("latest.log", "w") as f:
+            f.write("")
+    if not path.exists("./config.json"):
+        with open("config.json", "w") as f:
+            dump(DEFAULT_CONFIG, f, ensure_ascii=False, indent=4)
+    log("Initiated", "INFO")
+
+
 def download_file(url, filename):
     response = requests.get(url, stream=True, timeout=2)
     total_size = int(response.headers.get('content-length', 0))
@@ -94,7 +107,7 @@ def update_models():
     release_date = response.json()["published_at"]
     if not path.exists("./models/version"):
         with open("./models/version", "w") as f:
-            f.write()
+            f.write("")
     with open("./models/version", "r") as f:
         current_date = f.read()
     if current_date == release_date:
@@ -115,10 +128,12 @@ def update_models():
     log("Models updated", "INFO")
 
 
+initiate()
 if get_config()["skipUpdate"] == False:
     try:
         update_models()
     except:
+        print_exc()
         log("Cannot update models", "WARNING")
 afk_seg_model = YOLO(get_config()["yoloConfig"]["segModel"])
 afk_det_model = YOLO(get_config()["yoloConfig"]["detModel"])
@@ -229,6 +244,7 @@ def validate_line(line):
 def test_environment():
     if get_config()["environment"]:
         return
+    initiate()
     log("Testing environment", "INFO")
     image = cv2.imread("./imgs/test.png")
     results = {}
