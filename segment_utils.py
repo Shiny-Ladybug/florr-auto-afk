@@ -4,6 +4,7 @@ from tqdm import tqdm
 from matplotlib import use
 from ultralytics import YOLO
 import cv2
+import base64
 import pyautogui
 from json import load, dump
 from sys import _getframe
@@ -77,6 +78,10 @@ def initiate():
     if not path.exists("./config.json"):
         with open("config.json", "w") as f:
             dump(DEFAULT_CONFIG, f, ensure_ascii=False, indent=4)
+    if not path.exists("./imgs"):
+        with open('./imgs/test.png', 'wb') as file:
+            img = base64.b64decode(TEST_IMAGE)
+            file.write(img)
     log("Initiated", "INFO")
 
 
