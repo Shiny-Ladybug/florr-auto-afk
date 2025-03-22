@@ -19,7 +19,7 @@ jobs:
         uses: sayyid5416/pyinstaller@v1
         with:
           python_ver: '3.11.8'
-          spec: 'main.py'
+          spec: 'segment.spec'
           requirements: 'py311-requirements.txt'
           upload_exe_with_name: 'florr-auto-afk-latest-auto'
-          options: --onedir, --console, --hidden-import "shapely", --hidden-import "pyclipper", --hidden-import "pyscreeze", --hidden-import "pytweening", --hidden-import "pymsgbox"
+          options: --onedir, --console

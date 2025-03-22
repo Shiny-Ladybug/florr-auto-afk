@@ -42,7 +42,7 @@ I DO NOT RECOMMEND CHANGING THE REST OF THE VALUES, CHANGING THOSE MAY CAUSE ISS
 
 I WONT EXPLAIN THEM NOW, FOR I HAVE TO SLEEP RIGHT AWAY.
 
-# Gallery
+## Gallery
 
 ![img](./imgs/gallery.png)
 
@@ -101,13 +101,10 @@ I WONT EXPLAIN THEM NOW, FOR I HAVE TO SLEEP RIGHT AWAY.
 
 ## Deploy
 
-As many people facing a endless looping and memory leak issue.
-
-I'll put the obfuscated version here. 
-
-* Why it is obfuscated?
-
-  > Can't tell.
+```bash
+pip install -r ./py311-requirements.txt
+python segment.py
+```
 
 Anyway, the release version is only for **WINDOWS** and **CPU ONLY** users.
 
@@ -131,6 +128,4 @@ I'll improve the code soon.
 
 Some people queried why I was using GPLv3 without opensourcing.
 
-BRO, yesterday is **TRADITIONAL CHINESE NEW YEAR's EVE**, can't I just upload the release code and have a break at this good time. Or you can read the release notes carefully words by words and you can find the problem.
-
-## Happy Chinese New Year
+BRO,that night was **TRADITIONAL CHINESE NEW YEAR's EVE**, can't I just upload the release code and have a break at this good time. Or you can read the release notes carefully words by words and you can find the problem.
