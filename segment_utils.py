@@ -80,6 +80,7 @@ def initiate():
             dump(DEFAULT_CONFIG, f, ensure_ascii=False, indent=4)
     if not path.exists("./imgs"):
         mkdir("./imgs")
+    if not path.exists("./imgs/test.png"):
         with open('./imgs/test.png', 'wb') as file:
             img = base64.b64decode(TEST_IMAGE)
             file.write(img)
