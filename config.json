@@ -4,7 +4,7 @@
     "moveMouse": true,
     "useOBS": false,
     "verbose": true,
-    "moveAfterAFK": false,
+    "moveAfterAFK": true,
     "epochInterval": 8,
     "executeBinary": {
         "runBeforeAFK": "",
@@ -15,7 +15,7 @@
     "extendLength": 30,
     "mouseSpeed": 100,
     "skipUpdate": false,
-    "environment": true,
+    "environment": false,
     "windowSizeTolerance": 0.1,
     "windowSizeRatio": [
         0.787,

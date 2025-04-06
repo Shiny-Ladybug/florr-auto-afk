@@ -1,13 +1,14 @@
-VERSION_INFO = "1.0.7"
-VERSION_TYPE = "Release"
-RELEASE_DATE = "2025-03-16 14:26:34"
+ASSET_REPO = "Shiny-Ladybug/assets"
+VERSION_INFO = "1.0.8"
+VERSION_TYPE = "Final Release"
+RELEASE_DATE = "2025-04-06 15:20:12"
 DEFAULT_CONFIG = {
     "runningCountDown(min)": -1,
     "showLogger": False,
     "moveMouse": True,
     "useOBS": False,
     "verbose": True,
-    "moveAfterAFK": False,
+    "moveAfterAFK": True,
     "epochInterval": 8,
     "executeBinary": {
         "runBeforeAFK": "",

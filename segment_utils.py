@@ -99,16 +99,15 @@ def download_file(url, filename):
 
 
 def update_models():
-    repo = "Shiny-Ladybug/florr-auto-afk"
-    tag_name = "models"
-    url = f"https://api.github.com/repos/{repo}/releases/tags/{tag_name}"
+    repo = ASSET_REPO
+    url = f"https://api.github.com/repos/{repo}/releases/latest"
     response = requests.get(url)
     if response.status_code != 200:
         log("Trying GitHub mirror API", "WARNING")
-        url = f"https://gh.llkk.cc/https://api.github.com/repos/{repo}/releases/tags/{tag_name}"
+        url = f"https://gh.llkk.cc/https://api.github.com/repos/{repo}/releases/latest"
         response = requests.get(url)
         if response.status_code != 200:
-            log("Failed to get release info", "ERROR")
+            log("Failed to get latest release info", "ERROR")
             return
     release_date = response.json()["published_at"]
     if not path.exists("./models/version"):

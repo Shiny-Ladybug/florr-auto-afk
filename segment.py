@@ -32,7 +32,6 @@ while True:
         except:
             log("Cannot execute extra binary", "ERROR")
     save_image(image, "afk", "afk")
-    # send_warning("AFK detected")
     left_top_bound = position[2][0]
     right_bottom_bound = position[2][1]
     image = crop_image(left_top_bound, right_bottom_bound, ori_image)
@@ -100,6 +99,5 @@ while True:
         np.array(pyautogui.screenshot()), cv2.COLOR_RGB2BGR))
     if position != None:
         log("Cannot bypass AFK", "ERROR")
-        # send_warning("Cannot bypass AFK")
     else:
         log("Bypassed AFK", "EVENT")
