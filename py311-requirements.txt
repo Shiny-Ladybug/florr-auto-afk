@@ -13,3 +13,4 @@ multiprocess
 matplotlib
 rdp
 tqdm
+opencv-contrib-python
