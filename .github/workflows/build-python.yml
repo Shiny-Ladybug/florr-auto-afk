@@ -9,17 +9,50 @@ on:
     branches: [ "main" ]
 
 permissions:
-  contents: read
+  contents: write  # Updated to allow creating releases
 
 jobs:
   pyinstaller-build:
     runs-on: windows-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Extract version from constants.py
+        id: get_version
+        run: |
+          import re
+          with open('constants.py', 'r') as f:
+              content = f.read()
+          match = re.search(r'VERSION_INFO\s*=\s*"([^"]+)"', content)
+          if not match:
+              raise ValueError("VERSION_INFO not found in constants.py")
+          print(f"::set-output name=version::{match.group(1)}")
+
       - name: Create Executable
         uses: sayyid5416/pyinstaller@v1
         with:
           python_ver: '3.11.8'
           spec: 'segment.spec'
           requirements: 'py311-requirements.txt'
-          upload_exe_with_name: 'florr-auto-afk-latest-auto'
+          upload_exe_with_name: 'florr-auto-afk-vv${{ steps.get_version.outputs.version }}-auto'
           options: --onedir, --console
+
+      - name: Upload Executable to Release
+        if: ${{ github.event_name == 'push' }}  # Only run on push events
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create a new release using the extracted version
+          gh release create "v${{ steps.get_version.outputs.version }}" \
+            --title "Release v${{ steps.get_version.outputs.version }}" \
+            --notes "Automated release for version v${{ steps.get_version.outputs.version }}" \
+            --target main
+
+          # Upload the executable to the release
+          gh release upload "v${{ steps.get_version.outputs.version }}" "dist/florr-auto-afk-vv${{ steps.get_version.outputs.version }}-auto/*" --clobber
