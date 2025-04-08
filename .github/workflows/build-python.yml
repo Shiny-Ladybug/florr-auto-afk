@@ -25,6 +25,7 @@ jobs:
 
       - name: Extract version from constants.py
         id: get_version
+        shell: python  # 指定使用 Python 运行脚本
         run: |
           import re
           with open('constants.py', 'r') as f:
