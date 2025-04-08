@@ -9,7 +9,7 @@ on:
     branches: [ "main" ]
 
 permissions:
-  contents: write  # Updated to allow creating releases
+  contents: write
 
 jobs:
   pyinstaller-build:
@@ -25,7 +25,7 @@ jobs:
 
       - name: Extract version from constants.py
         id: get_version
-        shell: python  # 指定使用 Python 运行脚本
+        shell: python
         run: |
           import re
           with open('constants.py', 'r') as f:
@@ -46,6 +46,7 @@ jobs:
 
       - name: Upload Executable to Release
         if: ${{ github.event_name == 'push' }}  # Only run on push events
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
