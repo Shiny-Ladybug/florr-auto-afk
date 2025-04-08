@@ -57,4 +57,4 @@ jobs:
             --target main
 
           # Upload the executable to the release
-          gh release upload "v${{ steps.get_version.outputs.version }}" "dist/segment/*" --clobber
+          gh release upload "v${{ steps.get_version.outputs.version }}" "./dist" --clobber
