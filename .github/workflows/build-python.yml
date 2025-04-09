@@ -46,8 +46,9 @@ jobs:
 
       - name: List files in current directory
         run: |
-          echo "Listing files in the current directory:"
-          dir
+          echo "Listing files in the dist directory:"
+          dir ./dist
+          tree ./dist
 
       - name: Upload Executable to Release
         if: ${{ github.event_name == 'push' }}  # Only run on push events
@@ -61,4 +62,4 @@ jobs:
             --notes "Automated release for version v${{ steps.get_version.outputs.version }}" \
             --target main
           # Upload the executable to the release
-          gh release upload "v${{ steps.get_version.outputs.version }}" "./florr-auto-afk-v${{ steps.get_version.outputs.version }}-auto.zip" --clobber
+          gh release upload "v${{ steps.get_version.outputs.version }}" "./dist/*" --clobber
