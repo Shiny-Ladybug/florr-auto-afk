@@ -1,4 +1,4 @@
-# florr auto afk (v1.0.8) (2025-04-06 Final Update)
+# florr auto afk (v1.0.8) (2025-04-06 Not Final Update)
 
 > As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
@@ -12,6 +12,17 @@ I have opensourced the code here.
 If you want to write more automation codes, go check models in [assets](https://github.com/Shiny-Ladybug/assets)
 
 If you want to boot this without an `Internet Connection`, try to set `skipUpdate` in `config.json` to `true`.
+
+## Deploy
+
+```bash
+pip install -r ./py311-requirements.txt
+python segment.py
+```
+
+Anyway, the release version is only for **WINDOWS** and **CPU ONLY** users.
+
+You can build your own GPU version here by installing `torch-gpu`.
 
 ## Config
 
@@ -70,7 +81,7 @@ I WONT EXPLAIN THEM NOW, FOR I HAVE TO SLEEP RIGHT AWAY.
                }
                prototype.fillText.toString = () => 'function toString() { [native code] }';
            }
-
+   
        }
    ```
 
@@ -93,17 +104,6 @@ I WONT EXPLAIN THEM NOW, FOR I HAVE TO SLEEP RIGHT AWAY.
 
    By using the Grey Style, we can define a specific `lower_bounds` and `upper_bounds` to get the path.
 4. Loop
-
-## Deploy
-
-```bash
-pip install -r ./py311-requirements.txt
-python segment.py
-```
-
-Anyway, the release version is only for **WINDOWS** and **CPU ONLY** users.
-
-You can build your own GPU version here by installing `torch-gpu`.
 
 ## Issues
 

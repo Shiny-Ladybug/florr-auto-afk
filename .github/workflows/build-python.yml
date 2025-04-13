@@ -44,11 +44,10 @@ jobs:
           upload_exe_with_name: 'florr-auto-afk-v${{ steps.get_version.outputs.version }}-auto'
           options: --onedir, --console
 
-      - name: List files in current directory
+      - name: Compress dist/segment directory
         run: |
-          echo "Listing files in the dist directory:"
-          dir ./dist
-          tree ./dist
+          echo "Compressing ./dist/segment directory into a ZIP file..."
+          powershell Compress-Archive -Path ./dist/segment/* -DestinationPath ./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}-auto.zip
 
       - name: Upload Executable to Release
         if: ${{ github.event_name == 'push' }}  # Only run on push events
@@ -61,5 +60,5 @@ jobs:
             --title "Release v${{ steps.get_version.outputs.version }}" \
             --notes "Automated release for version v${{ steps.get_version.outputs.version }}" \
             --target main
-          # Upload the executable to the release
-          gh release upload "v${{ steps.get_version.outputs.version }}" "./dist/*" --clobber
+          # Upload the ZIP file to the release
+          gh release upload "v${{ steps.get_version.outputs.version }}" "./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}-auto.zip" --clobber
