@@ -81,7 +81,7 @@ I WONT EXPLAIN THEM NOW, FOR I HAVE TO SLEEP RIGHT AWAY.
                }
                prototype.fillText.toString = () => 'function toString() { [native code] }';
            }
-   
+
        }
    ```
 
@@ -94,10 +94,9 @@ I WONT EXPLAIN THEM NOW, FOR I HAVE TO SLEEP RIGHT AWAY.
 
    ![results.png](./imgs/results.png)
 
-    Obviously i got a good model for this.
+   Obviously i got a good model for this.
 
-    After I get the contours, we can use the`cv2.ximgproc.thinning()` method to get the skeletonized path.
-
+   After I get the contours, we can use the `cv2.ximgproc.thinning()` method to get the skeletonized path.
 3. Sometimes the yolo model cannot detect the possible results.
 
    I use opencv as well to detect the path.
