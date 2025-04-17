@@ -19,9 +19,6 @@ from re import match
 from rdp import rdp
 from traceback import print_exc
 
-import multiprocessing
-multiprocessing.freeze_support()
-
 console = Console()
 
 use('Agg')

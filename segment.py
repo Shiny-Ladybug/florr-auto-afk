@@ -1,4 +1,5 @@
 from segment_utils import *
+import multiprocessing
 
 
 def test_idle_thread(idled_flag, suppress_idle_detection):
@@ -148,6 +149,7 @@ def afk_thread(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model
 
 
 if __name__ == "__main__":
+    multiprocessing.set_start_method('spawn')
     multiprocessing.freeze_support()
     print(f"florr-auto-afk v{VERSION_INFO}({VERSION_TYPE}) {RELEASE_DATE}")
     initiate()
