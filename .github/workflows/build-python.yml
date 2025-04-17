@@ -44,10 +44,15 @@ jobs:
           upload_exe_with_name: 'florr-auto-afk-v${{ steps.get_version.outputs.version }}-auto'
           options: --onedir, --console
 
-      - name: Compress dist/segment directory
+      - name: Creating Compressed Executable
+        shell: powershell
         run: |
+          Copy-Item -Path ./config.json -Destination ./dist/segment/config.json
+          New-Item -Path ./dist/segment/imgs -ItemType Directory
+          Copy-Item -Path ./imgs/test.png -Destination ./dist/segment/imgs/test.png
+          Copy-Item -Path ./imgs/models -Destination ./dist/segment/imgs/models -Recurse
           echo "Compressing ./dist/segment directory into a ZIP file..."
-          powershell Compress-Archive -Path ./dist/segment/* -DestinationPath ./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}-auto.zip
+          Compress-Archive -Path ./dist/segment/* -DestinationPath ./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}-auto.zip
 
       - name: Upload Executable to Release
         if: ${{ github.event_name == 'push' }}  # Only run on push events

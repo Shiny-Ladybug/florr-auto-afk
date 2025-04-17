@@ -7,7 +7,7 @@ __pycache__/
 *.so
 
 latest.log
-
+images/
 # Distribution / packaging
 .Python
 build/

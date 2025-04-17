@@ -8,26 +8,23 @@ import base64
 import pyautogui
 from json import load, dump
 from sys import _getframe
-from os import path, mkdir, system
+from os import path, mkdir, system, remove
 import numpy as np
 from datetime import datetime
 from time import sleep, time, localtime
 from rich.console import Console
 from scipy.interpolate import interp1d
 from scipy.spatial import distance
-import multiprocessing
 from re import match
 from rdp import rdp
 from traceback import print_exc
 
+import multiprocessing
 multiprocessing.freeze_support()
 
 console = Console()
 
 use('Agg')
-
-
-print(f"florr-auto-afk v{VERSION_INFO}({VERSION_TYPE}) {RELEASE_DATE}")
 
 
 def get_config():
@@ -68,23 +65,22 @@ def log(event: str, type: str, show: bool = True, save: bool = True):
 
 
 def initiate():
+    flag = False
     if not path.exists("./models"):
         mkdir("./models")
+        flag = True
     if not path.exists("./images"):
         mkdir("./images")
+        flag = True
     if not path.exists("./latest.log"):
         with open("latest.log", "w") as f:
             f.write("")
-    if not path.exists("./config.json"):
-        with open("config.json", "w") as f:
-            dump(DEFAULT_CONFIG, f, ensure_ascii=False, indent=4)
+        flag = True
     if not path.exists("./imgs"):
         mkdir("./imgs")
-    if not path.exists("./imgs/test.png"):
-        with open('./imgs/test.png', 'wb') as file:
-            img = base64.b64decode(TEST_IMAGE)
-            file.write(img)
-    log("Initiated", "INFO")
+        flag = True
+    if flag:
+        log("Initiated", "INFO")
 
 
 def download_file(url, filename):
@@ -117,7 +113,7 @@ def update_models():
     with open("./models/version", "r") as f:
         current_date = f.read()
     if current_date == release_date:
-        log("Models are up to date", "INFO")
+        log("Models are up to date", "INFO", save=False)
         return
     else:
         log("Updating models", "INFO")
@@ -134,15 +130,33 @@ def update_models():
     log("Models updated", "INFO")
 
 
-initiate()
-if get_config()["skipUpdate"] == False:
-    try:
-        update_models()
-    except:
-        print_exc()
-        log("Cannot update models", "WARNING")
-afk_seg_model = YOLO(get_config()["yoloConfig"]["segModel"])
-afk_det_model = YOLO(get_config()["yoloConfig"]["detModel"])
+def check_update():
+    def parse_version(version):
+        version = version.removeprefix("v")
+        version_parts = version.split('.')
+        return tuple(map(int, version_parts))
+
+    def compare_versions(version1, version2):
+        return version1 < version2
+
+    repo = PROJECT_REPO
+    url = f"https://api.github.com/repos/{repo}/releases/latest"
+    response = requests.get(url)
+    if response.status_code != 200:
+        log("Trying GitHub mirror API", "WARNING")
+        url = f"https://gh.llkk.cc/https://api.github.com/repos/{repo}/releases/latest"
+        response = requests.get(url)
+        if response.status_code != 200:
+            log("Failed to get latest release info", "ERROR")
+            return
+    remote_version = parse_version(response.json()["tag_name"])
+    local_version = parse_version(VERSION_INFO)
+    if compare_versions(local_version, remote_version):
+        log(f"New version available", "WARNING", save=False)
+        log(
+            f"You are at v{VERSION_INFO} with remote latest {response.json()['tag_name']}", "WARNING", save=False)
+    else:
+        log("You are at the latest version", "INFO", save=False)
 
 
 def color(count, index):
@@ -204,13 +218,13 @@ def extend_line(line):
     l_l2_dist = distance.euclidean(end, last)
     sine_theta = (end[1] - last[1]) / l_l2_dist
     cosine_theta = (end[0] - last[0]) / l_l2_dist
-    delta_x = get_config()["extendLength"] * cosine_theta
-    delta_y = get_config()["extendLength"] * sine_theta
+    delta_x = get_config()["advanced"]["extendLength"] * cosine_theta
+    delta_y = get_config()["advanced"]["extendLength"] * sine_theta
     end = (round(end[0] + delta_x), round(end[1] + delta_y))
     return line + [end]
 
 
-def apply_mouse_movement(points, speed=get_config()["mouseSpeed"]):
+def apply_mouse_movement(points, speed=get_config()["advanced"]["mouseSpeed"]):
     pyautogui.moveTo(points[0][0], points[0][1], duration=0.5)
     pyautogui.mouseUp(button="left")
     pyautogui.mouseUp(button="right")
@@ -247,8 +261,8 @@ def validate_line(line):
     return new
 
 
-def test_environment():
-    if get_config()["environment"]:
+def test_environment(afk_seg_model):
+    if get_config()["advanced"]["environment"]:
         return
     initiate()
     log("Testing environment", "INFO")
@@ -280,7 +294,7 @@ def test_environment():
         log("Environment failed", "WARNING")
     log(f"Environment test finished with {results}", "INFO")
     configs = get_config()
-    configs['environment'] = True
+    configs["advanced"]['environment'] = True
     with open('config.json', 'w', encoding='utf-8') as f:
         dump(configs, f, ensure_ascii=False, indent=4)
 
@@ -318,7 +332,7 @@ def yolo_detect(model, img):
     return detected, img
 
 
-def detect_afk(img):
+def detect_afk(img, afk_det_model):
     things = yolo_detect(afk_det_model, img)
     windows_pos = None
     for thing in things[0]:
@@ -330,7 +344,7 @@ def detect_afk(img):
     window_width = windows_pos[1][0] - windows_pos[0][0]
     window_height = windows_pos[1][1] - windows_pos[0][1]
     ratio = window_width / window_height
-    if (get_config()["windowSizeRatio"][0]*(1-get_config()["windowSizeTolerance"]) < ratio < get_config()["windowSizeRatio"][0]*(1+get_config()["windowSizeTolerance"])) or (get_config()["windowSizeRatio"][1]*(1-get_config()["windowSizeTolerance"]) < ratio < get_config()["windowSizeRatio"][1]*(1+get_config()["windowSizeTolerance"])):
+    if (get_config()["advanced"]["windowSizeRatio"][0]*(1-get_config()["advanced"]["windowSizeTolerance"]) < ratio < get_config()["advanced"]["windowSizeRatio"][0]*(1+get_config()["advanced"]["windowSizeTolerance"])) or (get_config()["advanced"]["windowSizeRatio"][1]*(1-get_config()["advanced"]["windowSizeTolerance"]) < ratio < get_config()["advanced"]["windowSizeRatio"][1]*(1+get_config()["advanced"]["windowSizeTolerance"])):
         afk_window_img = img[windows_pos[0][1]:windows_pos[1][1],
                              windows_pos[0][0]:windows_pos[1][0]]
         things_afk = yolo_detect(afk_det_model, afk_window_img)
@@ -394,3 +408,16 @@ def move_a_bit(interval=0.1):
     pyautogui.keyDown("a")
     sleep(interval)
     pyautogui.keyUp("a")
+
+
+def exposure_image(left_top_bound, right_bottom_bound, duration):
+    start_time = time()
+    frames = []
+    region = (left_top_bound[0], left_top_bound[1],
+              right_bottom_bound[0]-left_top_bound[0], right_bottom_bound[1]-left_top_bound[1])
+    while time() - start_time < duration:
+        screenshot = pyautogui.screenshot(region=region)
+        frame = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
+        frames.append(frame)
+    average_frame = np.mean(frames, axis=0).astype(np.uint8)
+    return average_frame
