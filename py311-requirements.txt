@@ -2,6 +2,7 @@ torch
 torchaudio
 torchvision
 ultralytics
+lap>=0.5.12
 scipy
 scikit-learn
 rich

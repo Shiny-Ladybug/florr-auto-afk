@@ -1,8 +1,5 @@
 from segment_utils import *
 
-idled_flag = multiprocessing.Value('b', False)
-suppress_idle_detection = multiprocessing.Value('b', False)
-
 
 def test_idle_thread(idled_flag, suppress_idle_detection):
     last_pos = None
@@ -151,6 +148,7 @@ def afk_thread(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model
 
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     print(f"florr-auto-afk v{VERSION_INFO}({VERSION_TYPE}) {RELEASE_DATE}")
     initiate()
     check_update()
@@ -170,6 +168,8 @@ if __name__ == "__main__":
             remove(get_config()["yoloConfig"]["segModel"])
             remove(get_config()["yoloConfig"]["detModel"])
             remove("./models/version")
+    idled_flag = multiprocessing.Value('b', False)
+    suppress_idle_detection = multiprocessing.Value('b', False)
     if not get_config()["runs"]["autoTakeOverWhenIdle"]:
         with idled_flag.get_lock():
             idled_flag.value = True
