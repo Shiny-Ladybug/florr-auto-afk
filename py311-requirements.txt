@@ -16,7 +16,7 @@ rdp
 tqdm
 opencv-contrib-python
 sv_ttk
-tkinter
+tk
 darkdetect
 pywinstyles
 pillow
