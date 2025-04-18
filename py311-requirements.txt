@@ -19,4 +19,4 @@ sv_ttk
 tk
 darkdetect
 pywinstyles
-pillow
+Pillow==9.3.0
