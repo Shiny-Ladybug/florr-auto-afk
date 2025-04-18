@@ -22,3 +22,4 @@ pywinstyles
 pillow
 win32mica
 win32gui
+pywin32
