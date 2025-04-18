@@ -1,4 +1,3 @@
-from constants import *
 import requests
 from tqdm import tqdm
 from matplotlib import use
@@ -7,7 +6,7 @@ import cv2
 import base64
 import pyautogui
 from json import load, dump
-from sys import _getframe
+from sys import _getframe, getwindowsversion
 from os import path, mkdir, system, remove
 import numpy as np
 from datetime import datetime
@@ -18,6 +17,7 @@ from scipy.spatial import distance
 from re import match
 from rdp import rdp
 from traceback import print_exc
+import constants
 
 console = Console()
 
@@ -27,6 +27,47 @@ use('Agg')
 def get_config():
     with open("./config.json", "r", encoding="utf-8") as f:
         return load(f)
+
+
+def log_ret(event: str, type: str, logger_=[], show: bool = True, save: bool = True):
+    back_frame = _getframe().f_back
+    if back_frame is not None:
+        back_filename = path.basename(back_frame.f_code.co_filename)
+        back_funcname = back_frame.f_code.co_name
+        back_lineno = back_frame.f_lineno
+    else:
+        back_filename = "Unknown"
+        back_funcname = "Unknown"
+        back_lineno = "Unknown"
+    now = datetime.now()
+    time = now.strftime("%Y-%m-%d %H:%M:%S")
+    logger = f"[{time}] <{back_filename}:{back_lineno}> <{back_funcname}()> {type}: {event}"
+    if type.lower() == "info":
+        style = "green"
+        tag = "info"
+    elif type.lower() == "error":
+        style = "red"
+        tag = "error"
+    elif type.lower() == "warning":
+        style = "yellow"
+        tag = "warning"
+    elif type.lower() == "critical":
+        style = "bold red"
+        tag = "critical"
+    elif type.lower() == "event":
+        style = "#ffab70"
+        tag = "event"
+    else:
+        style = ""
+        tag = "default"
+
+    if show:
+        console.print(logger, style=style)
+    if save:
+        with open('latest.log', 'a', encoding='utf-8') as f:
+            f.write(f'{logger}\n')
+    logger_.append({'logger': logger, 'type': tag})
+    return {'logger': logger, 'type': tag}
 
 
 def log(event: str, type: str, show: bool = True, save: bool = True):
@@ -93,7 +134,7 @@ def download_file(url, filename):
 
 
 def update_models():
-    repo = ASSET_REPO
+    repo = constants.ASSET_REPO
     url = f"https://api.github.com/repos/{repo}/releases/latest"
     response = requests.get(url)
     if response.status_code != 200:
@@ -136,7 +177,7 @@ def check_update():
     def compare_versions(version1, version2):
         return version1 < version2
 
-    repo = PROJECT_REPO
+    repo = constants.PROJECT_REPO
     url = f"https://api.github.com/repos/{repo}/releases/latest"
     response = requests.get(url)
     if response.status_code != 200:
@@ -147,13 +188,14 @@ def check_update():
             log("Failed to get latest release info", "ERROR")
             return
     remote_version = parse_version(response.json()["tag_name"])
-    local_version = parse_version(VERSION_INFO)
+    local_version = parse_version(constants.VERSION_INFO)
     if compare_versions(local_version, remote_version):
         log(f"New version available", "WARNING", save=False)
         log(
-            f"You are at v{VERSION_INFO} with remote latest {response.json()['tag_name']}", "WARNING", save=False)
+            f"You are at v{constants.VERSION_INFO} with remote latest {response.json()['tag_name']}", "WARNING", save=False)
     else:
         log("You are at the latest version", "INFO", save=False)
+    return compare_versions(local_version, remote_version), remote_version
 
 
 def color(count, index):

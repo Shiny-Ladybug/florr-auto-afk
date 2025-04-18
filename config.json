@@ -9,10 +9,10 @@
     },
     "exposure": {
         "enable": true,
-        "duration": 2
+        "duration": 3
     },
     "gui": {
-        "language": "en-us",
+        "language": "zh-cn",
         "theme": "auto",
         "mica": false
     },
@@ -27,7 +27,7 @@
         "extendLength": 30,
         "mouseSpeed": 100,
         "skipUpdate": false,
-        "environment": true,
+        "environment": false,
         "windowSizeTolerance": 0.1,
         "windowSizeRatio": [
             0.787,

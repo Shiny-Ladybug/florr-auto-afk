@@ -15,3 +15,10 @@ matplotlib
 rdp
 tqdm
 opencv-contrib-python
+sv_ttk
+tkinter
+darkdetect
+pywinstyles
+pillow
+win32mica
+win32gui

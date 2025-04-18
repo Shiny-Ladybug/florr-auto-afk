@@ -51,6 +51,7 @@ jobs:
           New-Item -Path ./dist/segment/imgs -ItemType Directory
           Copy-Item -Path ./imgs/test.png -Destination ./dist/segment/imgs/test.png
           Copy-Item -Path ./models -Destination ./dist/segment/models -Recurse
+          Copy-Item -Path ./gui -Destination ./dist/segment/gui -Recurse
           echo "Compressing ./dist/segment directory into a ZIP file..."
           Compress-Archive -Path ./dist/segment/* -DestinationPath ./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}-auto.zip
 
