@@ -317,8 +317,8 @@ if __name__ == "__main__":
         root.title(f"florr-auto-afk (v{constants.VERSION_INFO})")
         root.iconbitmap("./gui/icon.ico")
         root.geometry("1000x600")
-        if get_config()["gui"]["mica"] and theme == "Dark":
-            root.after(1, Get_hWnd, root)
+        # if get_config()["gui"]["mica"] and theme == "Dark":
+        #     root.after(1, Get_hWnd, root)
         root.resizable(False, False)
         sidebar = ttk.Frame(root, width=150)
         sidebar.pack(side="left", fill="y", padx=10)

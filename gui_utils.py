@@ -6,8 +6,8 @@ from tkinter import ttk
 import darkdetect
 import sv_ttk
 import json
-from win32mica import ApplyMica, MICAMODE
-from win32gui import GetParent
+# from win32mica import ApplyMica, MICAMODE
+# from win32gui import GetParent
 from segment_utils import *
 
 config = get_config()
@@ -312,9 +312,10 @@ def add_rounded_image_to_canvas(main_content, image_path, theme, height=200, rad
     return canvas
 
 
-def Get_hWnd(root, hWnd=None):
+'''def Get_hWnd(root, hWnd=None):
     hWnd = GetParent(root.winfo_id())
     ApplyMica(hWnd, MICAMODE.DARK)
+'''
 
 
 def generate_announcement():

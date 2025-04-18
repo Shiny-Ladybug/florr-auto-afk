@@ -20,6 +20,3 @@ tk
 darkdetect
 pywinstyles
 pillow
-pywin32
-win32mica
-win32gui
