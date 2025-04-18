@@ -35,6 +35,11 @@ jobs:
               raise ValueError("VERSION_INFO not found in constants.py")
           print(f"::set-output name=version::{match.group(1)}")
 
+      - name: Pre install pywin32
+        shell: powershell
+        run: |
+          python -m pip install pywin32
+
       - name: Create Executable
         uses: sayyid5416/pyinstaller@v1
         with:
