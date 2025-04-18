@@ -1,9 +1,11 @@
-# florr auto afk (v1.0.8) (2025-04-06 Not Final Update)
+# florr auto afk (v1.1.0) (2025-04-18 GUI Update)
 
 > As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
 > [!CAUTION]
 > On 2025/02/07, m28 nerfed egg and increase the difficulty of AFK Checks, however, keep using this script may result in a BAN
+>
+> M28 also can send player messages and AFK Checks, if you can solve the check but cannot respond to his messages, you may result in a BAN
 
 ## INFO
 
@@ -13,6 +15,17 @@ If you want to write more automation codes, go check models in [assets](https://
 
 If you want to boot this without an `Internet Connection`, try to set `skipUpdate` in `config.json` to `true`.
 
+## Changelog
+
+* 2025-04-18
+
+  Add GUI, exposure, idle detection support
+
+  As that exposure can nerf the mobs' movement effect and idle detection enables me to active (maybe kill supers) without quitting the program
+
+  ![exposure showcase](./imgs/exposure.jpg)
+
+  ![GUI Settings](./imgs/settings.png)
 ## Deploy
 
 ```bash
@@ -20,35 +33,17 @@ pip install -r ./py311-requirements.txt
 python segment.py
 ```
 
-Anyway, the release version is only for **WINDOWS** and **CPU ONLY** users.
+Notice: the release version is only for **WINDOWS** and **CPU ONLY** users.
+
+If you want to run the script on MacOS or Linux, go to run source codes.
 
 You can build your own GPU version here by installing `torch-gpu`.
 
 ## Config
 
-At `config.json`
+See the settings page in GUI menu.
 
-* `runningCountDown(min)`
-
-  Set it to `-1` to let the script run endlessly untill you press `^C`
-
-  Or set it to a Positive Number to run for a definite time
-* `useOBS`
-
-  Just for fun. Set OBS Start hotkey to `Ctrl Alt Shift O` and End hotkey to `Ctrl Alt Shift P` to capture the amazing moment of passing AFK Checks.
-* `moveAfterAFK`
-
-  Make the player move a bit `wasd` after checks to prevent `Moving Checks`
-* `epochInterval`
-
-  How many seconds should the program sleep after one check. Decrease this value if you have anxiety disorders
-* `extraBinary`
-
-  If you have something to excute before or after AFK Checks detected, you can write the executables path here.
-
-I DO NOT RECOMMEND CHANGING THE REST OF THE VALUES, CHANGING THOSE MAY CAUSE ISSUE IN PROGRAM
-
-I WONT EXPLAIN THEM NOW, FOR I HAVE TO SLEEP RIGHT AWAY.
+If you can't understand and you are Chinese, set `language` to `zh-cn` for Chinese settings.
 
 ## Gallery
 
@@ -81,7 +76,7 @@ I WONT EXPLAIN THEM NOW, FOR I HAVE TO SLEEP RIGHT AWAY.
                }
                prototype.fillText.toString = () => 'function toString() { [native code] }';
            }
-
+   
        }
    ```
 
