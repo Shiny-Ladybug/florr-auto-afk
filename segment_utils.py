@@ -7,7 +7,7 @@ import base64
 import pyautogui
 from json import load, dump
 from sys import _getframe, getwindowsversion
-from os import path, mkdir, system, remove
+from os import path, mkdir, system, remove, listdir
 import numpy as np
 from datetime import datetime
 from time import sleep, time, localtime

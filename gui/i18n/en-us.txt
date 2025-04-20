@@ -14,7 +14,6 @@ exposure.enable=Enable Exposure
 exposure.duration=Exposure Duration
 gui.language=Language
 gui.theme=Theme
-gui.mica=Mica Effect
 advanced.showLogger=Show Logger
 advanced.moveMouse=Move Mouse
 advanced.useOBS=Use OBS

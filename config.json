@@ -13,8 +13,7 @@
     },
     "gui": {
         "language": "en-us",
-        "theme": "auto",
-        "mica": false
+        "theme": "auto"
     },
     "advanced": {
         "showLogger": false,

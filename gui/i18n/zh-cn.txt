@@ -14,7 +14,6 @@ exposure.enable=启用曝光
 exposure.duration=曝光时长
 gui.language=语言
 gui.theme=主题
-gui.mica=云母特效
 advanced.showLogger=显示 AFK 路径
 advanced.moveMouse=移动鼠标
 advanced.useOBS=使用 OBS 录屏

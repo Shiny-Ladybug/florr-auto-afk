@@ -6,8 +6,6 @@ from tkinter import ttk
 import darkdetect
 import sv_ttk
 import json
-# from win32mica import ApplyMica, MICAMODE
-# from win32gui import GetParent
 from segment_utils import *
 
 config = get_config()
@@ -32,8 +30,7 @@ def apply_theme_to_titlebar(root):
 
 
 def create_scrollable_frame(parent):
-    """Create a scrollable frame with a canvas and scrollbar."""
-    canvas = tk.Canvas(parent, highlightthickness=0)  # Remove blue border
+    canvas = tk.Canvas(parent, highlightthickness=0)
     scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
     scrollable_frame = ttk.Frame(canvas)
     scrollable_frame.bind(
@@ -56,13 +53,11 @@ def create_scrollable_frame(parent):
 
 
 def save_config_to_file(config_data, file_path="./config.json"):
-    """Save the updated configuration to a file."""
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(config_data, f, indent=4, ensure_ascii=False)
 
 
 def load_translations(lang="en-us"):
-    """Load translations from a file into a dictionary."""
     translations = {}
     with open("./gui/i18n/"+lang+".txt", "r", encoding="utf-8") as f:
         for line in f:
@@ -73,7 +68,6 @@ def load_translations(lang="en-us"):
 
 
 def translate(key, translations):
-    """Translate a key using the loaded translations."""
     return translations.get(key, key)
 
 
@@ -98,21 +92,17 @@ def create_settings_widgets(parent, config_data, parent_key=""):
 
             def update_list(event, key=key):
                 try:
-
                     config_data[key] = json.loads(entry.get())
-
                     parent_key = None
                     for k, v in config.items():
                         if list(v.keys()) == list(config_data.keys()):
                             parent_key = k
                             break
-
                     if parent_key:
-                        config[parent_key] = config_data  # 同步修改到全局 config
-
+                        config[parent_key] = config_data
                     save_config_to_file(config)
                 except json.JSONDecodeError:
-                    pass  # 忽略无效的 JSON
+                    pass
             entry.bind("<Return>", update_list)
             entry.bind("<FocusOut>", update_list)
         elif isinstance(value, bool):
@@ -172,7 +162,7 @@ def create_settings_widgets(parent, config_data, parent_key=""):
                             parent_key = k
                             break
                     if parent_key:
-                        config[parent_key] = config_data  # 同步修改到全局 config
+                        config[parent_key] = config_data
                     save_config_to_file(config)
                 except ValueError:
                     pass
@@ -201,13 +191,22 @@ def create_settings_widgets(parent, config_data, parent_key=""):
             entry.bind("<Return>", update_other)
 
 
-def create_rounded_image(image_path, width, height, radius, theme):
+def create_fill_image(image, width, height):
+    if isinstance(image, np.ndarray):
+        image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGBA))
+    tiled_image = Image.new("RGBA", (width, height))
+    img_width, img_height = image.size
+    for x in range(0, width, img_width):
+        for y in range(0, height, img_height):
+            tiled_image.paste(image, (x, y))
+
+    return cv2.cvtColor(np.array(tiled_image), cv2.COLOR_RGBA2BGRA)
+
+
+def create_rounded_image(image, width, height, radius, theme):
     if width <= 0 or height <= 0:
         raise ValueError(
             f"Invalid width ({width}) or height ({height}) for resizing.")
-    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
-    if image is None:
-        raise FileNotFoundError(f"Image not found at path: {image_path}")
     image = cv2.resize(image, (width, height))
     if image.shape[2] == 3:  # If the image is RGB (3 channels)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2BGRA)
@@ -231,10 +230,15 @@ def create_rounded_image(image_path, width, height, radius, theme):
     inverted_mask = cv2.bitwise_not(mask)
     rounded_image = cv2.add(
         rounded_image, cv2.bitwise_and(background, inverted_mask))
+    rounded_image = draw_version(rounded_image, width, height)
+    rounded_image = cv2.cvtColor(rounded_image, cv2.COLOR_BGRA2RGBA)
+    return Image.fromarray(rounded_image)
 
+
+def draw_version(image, width, height):
     rounded_image = draw_text_pil(
-        rounded_image,
-        f"florr-auto-afk v{constants.VERSION_INFO}",
+        image,
+        "florr-auto-afk",
         (width // 2, height // 2 - 5),
         "./gui/Ubuntu-R.ttf",
         50,
@@ -243,13 +247,36 @@ def create_rounded_image(image_path, width, height, radius, theme):
         outline_color=(0, 0, 0),
         outline_width=2,
     )
+    text_width, text_height = ImageDraw.Draw(
+        Image.fromarray(rounded_image)).textsize("florr-auto-afk", font=ImageFont.truetype("./gui/Ubuntu-R.ttf", 50))
 
-    rounded_image = cv2.cvtColor(rounded_image, cv2.COLOR_BGRA2RGBA)
-    return Image.fromarray(rounded_image)
+    rounded_image = draw_text_pil(
+        rounded_image,
+        f"v{constants.VERSION_INFO}",
+        ((width+text_width) // 2+40, (height+text_height) // 2 - 15),
+        "./gui/Ubuntu-R.ttf",
+        25,
+        (255, 255, 255),
+        align="center",
+        outline_color=(0, 0, 0),
+        outline_width=1,
+    )
+
+    rounded_image = draw_text_pil(
+        rounded_image,
+        f"GitHub: https://github.com/{constants.PROJECT_REPO}",
+        (width-15, height-30),
+        "./gui/Ubuntu-R.ttf",
+        15,
+        (255, 255, 255),
+        align="right",
+        outline_color=(0, 0, 0),
+        outline_width=1,
+    )
+    return rounded_image
 
 
 def draw_text_pil(img, text, position, font_path, font_size, color=(255, 255, 255), align='left', outline_color=(0, 0, 0), outline_width=2):
-    """Draw text on an image with specified alignment and an optional outline."""
     pil_img = Image.fromarray(img)
     draw = ImageDraw.Draw(pil_img)
     font = ImageFont.truetype(font_path, font_size)
@@ -271,60 +298,53 @@ def draw_text_pil(img, text, position, font_path, font_size, color=(255, 255, 25
                     continue
                 draw.text((x + dx, y + dy), text,
                           font=font, fill=outline_color)
-
     draw.text((x, y), text, font=font, fill=color)
-
     return np.array(pil_img)
 
 
 def add_rounded_image_to_canvas(main_content, image_path, theme, height=200, radius=20):
-    """Add a rounded rectangle image to the Tkinter canvas with dynamic width."""
     def update_image(event=None):
         if not canvas.winfo_exists():
-            return  # 如果 canvas 已被销毁，停止更新
+            return
         available_width = main_content.winfo_width()
-
         if available_width <= 0:
             return
-
         width = int(available_width - 20)
-
         if width <= 0 or height <= 0:
             return
-
+        image = cv2.imread(image_path)
+        image = cv2.resize(image, (300, 300))
+        tiled_image = create_fill_image(image, width, height)
         rounded_image = create_rounded_image(
-            image_path, width, height, radius, theme)
-
+            tiled_image, width, height, radius, theme)
         rounded_image_tk = ImageTk.PhotoImage(rounded_image)
-
         canvas.delete("all")
         canvas.config(width=width, height=height)
         canvas.create_image(0, 0, anchor="nw", image=rounded_image_tk)
-
         canvas.image = rounded_image_tk
-
     canvas = tk.Canvas(main_content, bg="white", highlightthickness=0)
     canvas.place(anchor="center", relx=0.5, y=height/2+10)
-
     main_content.bind("<Configure>", update_image)
-
     update_image()
     return canvas
 
 
-'''def Get_hWnd(root, hWnd=None):
-    hWnd = GetParent(root.winfo_id())
-    ApplyMica(hWnd, MICAMODE.DARK)
-'''
-
-
-def generate_announcement():
-    new_update, remote_version = check_update()
-    remote_version = '.'.join([str(i) for i in remote_version])
-    if new_update == None:
-        return "Failed to check for updates."
-    if new_update:
-        message = f"New version v{remote_version} is available!"
-        return message
+def generate_announcement(skip_update=False):
+    upd = check_update()
+    if upd == None:
+        update_msg = "Failed to check for updates."
     else:
-        return "No new updates available."
+        if upd[0] and not skip_update:
+            new_update, remote_version = upd
+            remote_version = '.'.join([str(i) for i in remote_version])
+            update_msg = f"New version v{remote_version} is available!"
+        elif not upd[0] and not skip_update:
+            update_msg = "No new updates available."
+        elif skip_update:
+            update_msg = "Update check skipped."
+    changelog_msg = "Changelog:\n"
+    for version, changes in constants.CHANGELOG.items():
+        changelog_msg += f"Version {version}:\n"
+        for change in changes:
+            changelog_msg += f"- {change}\n"
+    return "\n\n".join([update_msg, changelog_msg])

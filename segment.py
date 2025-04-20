@@ -1,4 +1,3 @@
-from multiprocessing import Process, Value, Manager
 from gui_utils import *
 import multiprocessing
 
@@ -57,8 +56,7 @@ def afk_thread(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model
         position = detect_afk(image, afk_det_model)
         if position == None:
             if get_config()["advanced"]["verbose"]:
-                log_ret("No AFK window found", "EVENT",
-                        shared_logger, save=False)
+                log("No AFK window found", "EVENT", save=False)
             if countdown != -1 and time() > eta_timestamp:
                 log_ret("Countdown Ends, program exiting", "EVENT")
                 break
@@ -156,7 +154,6 @@ def afk_thread(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model
 
 
 def run_segment(idled_flag, suppress_idle_detection, shared_logger):
-    global idle_thread, afk_thread_process
     try:
         afk_seg_model = YOLO(get_config()["yoloConfig"]["segModel"])
         afk_det_model = YOLO(get_config()["yoloConfig"]["detModel"])
@@ -210,11 +207,27 @@ def toggle_segment_process():
 
     if segment_running.value:
         segment_running.value = False
-        if segment_process is not None:
+
+        # Terminate segment_process if it exists
+        if segment_process is not None and segment_process.is_alive():
             segment_process.terminate()
             segment_process.join()
         segment_process = None
-        log_ret("Segment process terminated.", "INFO", shared_logger)
+
+        # Terminate idle_thread if it exists
+        if idle_thread is not None and idle_thread.is_alive():
+            idle_thread.terminate()
+            idle_thread.join()
+            idle_thread = None
+
+        # Terminate afk_thread_process if it exists
+        if afk_thread_process is not None and afk_thread_process.is_alive():
+            afk_thread_process.terminate()
+            afk_thread_process.join()
+            afk_thread_process = None
+
+        log_ret("Segment process and associated threads terminated.",
+                "INFO", shared_logger)
         update_page("launch")
     else:
         start_segment_process(segment_running, shared_logger)
@@ -232,12 +245,18 @@ def update_page(new_page_stat):
     if page_stat == "launch":
         canvas = add_rounded_image_to_canvas(
             main_content, "./gui/bg.png", theme)
+        announcement_title = ttk.Label(
+            main_content,
+            text="Announcements:",
+            font=("Microsoft Yahei", 15),
+        )
         announcement_label = ttk.Label(
             main_content,
             text=announcement,
-            font=("Microsoft Yahei", 15),
+            font=("Microsoft Yahei", 12),
         )
         canvas.pack(anchor="center", pady=20)
+        announcement_title.pack(anchor="w", pady=0)
         announcement_label.pack(anchor="w", pady=0)
         launch_button = ttk.Button(
             main_content,
@@ -302,24 +321,76 @@ def update_page(new_page_stat):
     elif page_stat == "settings":
         scrollable_frame = create_scrollable_frame(main_content)
         create_settings_widgets(scrollable_frame, get_config())
+    elif page_stat == "history":
+        scrollable_frame = ttk.Frame(main_content)
+        canvas = tk.Canvas(scrollable_frame)
+        scrollbar = ttk.Scrollbar(
+            scrollable_frame, orient="vertical", command=canvas.yview)
+        scrollable_content = ttk.Frame(canvas)
+        scrollable_frame.pack(fill="both", expand=True)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        canvas.create_window((0, 0), window=scrollable_content, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        def on_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        scrollable_content.bind("<Configure>", on_configure)
+
+        def _on_mouse_wheel(event):
+            canvas.yview_scroll(-1 * int(event.delta / 120), "units")
+
+        canvas.bind("<Enter>", lambda e: canvas.bind_all(
+            "<MouseWheel>", _on_mouse_wheel))
+        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+        images = listdir("./images/afk")
+        names = [name.removeprefix("afk_solution_").removesuffix(".png") for name in images if name.startswith(
+            "afk_solution_") and name.endswith(".png")]
+        for name in sorted(names):
+            name_label = ttk.Label(
+                scrollable_content, text=name, font=("Arial", 14, "bold"))
+            name_label.pack(anchor="w", pady=5)
+            frame = ttk.Frame(scrollable_content)
+            frame.pack(fill="x", pady=5)
+            solution_path = f"./images/afk/afk_solution_{name}.png"
+            if f"afk_solution_{name}.png" in images:
+                solution_image = Image.open(solution_path)
+                solution_image.thumbnail((350, 350))
+                solution_image_tk = ImageTk.PhotoImage(solution_image)
+                solution_label = ttk.Label(
+                    frame, image=solution_image_tk, text=f"afk_solution_{name}.png", compound="top")
+                solution_label.image = solution_image_tk
+                solution_label.pack(side="left", padx=5)
+            exposure_path = f"./images/afk/exposure_{name}.png"
+            if f"exposure_{name}.png" in images:
+                exposure_image = Image.open(exposure_path)
+                exposure_image.thumbnail((200, 200))
+                exposure_image_tk = ImageTk.PhotoImage(exposure_image)
+                exposure_label = ttk.Label(
+                    frame, image=exposure_image_tk, text=f"exposure_{name}.png", compound="top")
+                exposure_label.image = exposure_image_tk
+                exposure_label.pack(side="left", padx=5)
 
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()
     page_stat = "launch"
     segment_process = idle_thread = afk_thread_process = None
-    segment_running = Value(ctypes.c_bool, False)
-    announcement = generate_announcement()
-    update_models()
-    with Manager() as manager:
+    segment_running = multiprocessing.Value(ctypes.c_bool, False)
+    announcement = generate_announcement(
+        get_config()["advanced"]["skipUpdate"])
+    if not get_config()["advanced"]["skipUpdate"]:
+        update_models()
+    else:
+        log("Skipping model update", "WARNING")
+    with multiprocessing.Manager() as manager:
         shared_logger = manager.list()
         root = tk.Tk()
         root.title(f"florr-auto-afk (v{constants.VERSION_INFO})")
         root.iconbitmap("./gui/icon.ico")
         root.geometry("1000x600")
-        # if get_config()["gui"]["mica"] and theme == "Dark":
-        #     root.after(1, Get_hWnd, root)
-        root.resizable(False, False)
+        root.minsize(1000, 600)
         sidebar = ttk.Frame(root, width=150)
         sidebar.pack(side="left", fill="y", padx=10)
         launch_button = ttk.Button(sidebar, text="Launch",
@@ -328,10 +399,12 @@ if __name__ == "__main__":
         console_button = ttk.Button(sidebar, text="Console",
                                     width=20, command=lambda: update_page("console"))
         console_button.pack(pady=10)
+        history_button = ttk.Button(
+            sidebar, text="History", width=20, command=lambda: update_page("history"))
+        history_button.pack(pady=10)
         settings_button = ttk.Button(
             sidebar, text="Settings", width=20, command=lambda: update_page("settings"))
         settings_button.pack(side="bottom", pady=10)
-
         main_content = ttk.Frame(root)
         main_content.pack(side="left", fill="both", expand=True)
 
