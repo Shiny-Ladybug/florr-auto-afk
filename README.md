@@ -1,4 +1,4 @@
-# florr auto afk (v1.1.0) (2025-04-18 GUI Update)
+# florr auto afk (v1.1.1) (2025-04-20 Update)
 
 > As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
@@ -26,6 +26,7 @@ If you want to boot this without an `Internet Connection`, try to set `skipUpdat
   ![exposure showcase](./imgs/exposure.jpg)
 
   ![GUI Settings](./imgs/settings.png)
+
 ## Deploy
 
 ```bash
@@ -76,7 +77,7 @@ If you can't understand and you are Chinese, set `language` to `zh-cn` for Chine
                }
                prototype.fillText.toString = () => 'function toString() { [native code] }';
            }
-   
+
        }
    ```
 
