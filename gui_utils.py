@@ -1,3 +1,4 @@
+import pygetwindow as gw
 import pywinstyles
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 import ctypes
@@ -6,9 +7,12 @@ from tkinter import ttk
 import darkdetect
 import sv_ttk
 import json
+from capture import bitblt, wgc
 from segment_utils import *
 
 config = get_config()
+capture_windows = []
+
 
 theme = darkdetect.theme() if get_config(
 )["gui"]["theme"] == "auto" else ("Dark" if get_config()["gui"]["theme"].lower() == "dark" else "Light")
@@ -330,7 +334,10 @@ def add_rounded_image_to_canvas(main_content, image_path, theme, height=200, rad
 
 
 def generate_announcement(skip_update=False):
-    upd = check_update()
+    if not skip_update:
+        upd = check_update()
+    else:
+        upd = None
     if upd == None:
         update_msg = "Failed to check for updates."
     else:
@@ -343,8 +350,190 @@ def generate_announcement(skip_update=False):
         elif skip_update:
             update_msg = "Update check skipped."
     changelog_msg = "Changelog:\n"
-    for version, changes in constants.CHANGELOG.items():
-        changelog_msg += f"Version {version}:\n"
-        for change in changes:
+    latest = constants.CHANGELOG.get(constants.VERSION_INFO, [])
+    if latest or skip_update:
+        changelog_msg += f"Version {constants.VERSION_INFO}:\n"
+        for change in latest:
             changelog_msg += f"- {change}\n"
+    else:
+        if not skip_update:
+            latest_v = get_changelog()
+            if latest_v:
+                latest = latest_v[list(latest_v.items())[0][0]]
+                changelog_msg += f"Version {list(latest_v.items())[0][0]}:\n"
+                for change in latest:
+                    changelog_msg += f"- {change}\n"
+            else:
+                changelog_msg += "No changelog available.\n"
+        else:
+            changelog_msg += "No changelog available.\n"
     return "\n\n".join([update_msg, changelog_msg])
+
+
+def get_changelog():
+    url = f"https://raw.githubusercontent.com/{constants.ASSET_REPO}/refs/heads/main/CHANGELOG.json"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            changelog = response.json()
+            return changelog
+        else:
+            try:
+                url = "https://github.moeyy.xyz/"+url
+                response = requests.get(url)
+                if response.status_code == 200:
+                    changelog = response.json()
+                    return changelog
+                else:
+                    return None
+            except:
+                return None
+    except:
+        return None
+
+
+def open_capture_window(root, main_content):
+    def update_preview():
+        selected_title = choose_window.get()
+        if selected_title == "Select a window":
+            create_window.after(1000, update_preview)
+            return
+        for w in available_windows:
+            if w.title == selected_title:
+                hwnd = w._hWnd
+                try:
+                    if capture_method.get() == "BitBlt":
+                        frame = bitblt.bitblt_capture(hwnd)
+                    elif capture_method.get() == "Windows Graphics Capture":
+                        frame = wgc.wgc_capture(hwnd)
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2RGBA)
+                    h, w = frame.shape[:2]
+                    scale = min(800 / w, 400 / h)
+                    new_w, new_h = int(w * scale), int(h * scale)
+                    frame = cv2.resize(frame, (new_w, new_h))
+                    img = Image.fromarray(frame)
+                    img_tk = ImageTk.PhotoImage(img)
+                    preview_label.config(image=img_tk)
+                    preview_label.image = img_tk
+                except Exception as e:
+                    print(f"Error capturing window: {e}")
+                break
+        create_window.after(1000, update_preview)
+    create_window = tk.Toplevel(root)
+    create_window.title("Capture Window")
+    create_window.iconbitmap("./gui/icon.ico")
+    create_window.geometry("1000x600")
+    create_window.resizable(False, False)
+    preview_label = ttk.Label(
+        create_window, text="Preview will appear here", anchor="center")
+    preview_label.pack(pady=10, padx=10, fill="both", expand=True)
+
+    bottom_frame = ttk.Frame(create_window)
+    bottom_frame.pack(pady=10, padx=20, fill="x")
+
+    available_windows_label = ttk.Label(
+        bottom_frame, text="Windows", font=("Microsoft Yahei", 12))
+    available_windows_label.pack(side="left", padx=10)
+
+    available_windows = gw.getWindowsWithTitle("")
+    available_windows = [w for w in available_windows if w.title != ""]
+    available_windows = sorted(
+        available_windows, key=lambda w: w.title.lower())
+    choose_window = ttk.Combobox(
+        bottom_frame,
+        name="window_selector",
+        values=[w.title for w in available_windows],
+        state="readonly",
+        font=("Microsoft Yahei", 12),
+    )
+    choose_window.set("Select a window")
+    choose_window.pack(side="left", fill="x", expand=True, padx=10)
+    capture_method_frame = ttk.Frame(create_window)
+    capture_method_frame.pack(pady=10, padx=20, fill="x")
+    capture_method_label = ttk.Label(
+        capture_method_frame, text="Capture Method", font=("Microsoft Yahei", 12))
+    capture_method_label.pack(side="left", padx=10)
+    capture_method = tk.StringVar(value="Windows Graphics Capture")
+    capture_method_selector = ttk.Combobox(
+        capture_method_frame,
+        textvariable=capture_method,
+        values=["Windows Graphics Capture", "BitBlt"],
+        state="readonly",
+        font=("Microsoft Yahei", 12),
+    )
+    available_windows = gw.getWindowsWithTitle("")
+    available_windows = [w for w in available_windows if w.title != ""]
+    available_windows = sorted(
+        available_windows, key=lambda w: w.title.lower())
+    choose_window["values"] = [w.title for w in available_windows]
+    capture_method_selector.pack(side="left", fill="x", expand=True, padx=10)
+    choose_window.bind("<<ComboboxSelected>>", lambda e: update_preview())
+    add_button = ttk.Button(
+        bottom_frame,
+        text="Add",
+        command=lambda: add_window_hook(
+            choose_window.get(), capture_method.get(), create_window, main_content),
+    )
+    add_button.pack(side="left", padx=10)
+    apply_theme_to_titlebar(create_window)
+
+
+def add_window_hook(title, capture_method, create_window, main_content):
+    global capture_windows
+    if title == "Select a window":
+        return
+    available_windows = gw.getWindowsWithTitle(title)
+    available_windows = [w for w in available_windows if w.title == title]
+    available_windows = available_windows[0]
+    hwnd = available_windows._hWnd
+    for w in capture_windows:
+        if w["hwnd"] == hwnd:
+            create_window.destroy()
+            return
+    if capture_method == "BitBlt":
+        thumbnail = bitblt.bitblt_capture(hwnd)
+    elif capture_method == "Windows Graphics Capture":
+        thumbnail = wgc.wgc_capture(hwnd)
+    window = {
+        "title": title,
+        "hwnd": hwnd,
+        "capture_method": capture_method,
+        "thumbnail": thumbnail,
+    }
+    capture_windows.append(window)
+    create_window.destroy()
+    update_capture_menu(main_content, window)
+
+
+def update_capture_menu(main_content, window):
+    global capture_windows
+    frame = ttk.Frame(main_content, relief="solid", borderwidth=1, padding=5)
+    frame.pack(fill="x", padx=10, pady=5)
+    thumbnail_image = Image.fromarray(cv2.cvtColor(
+        window['thumbnail'], cv2.COLOR_BGRA2RGBA))
+    thumbnail_image.thumbnail((100, 100))
+    thumbnail_image_tk = ImageTk.PhotoImage(thumbnail_image)
+    thumbnail_label = ttk.Label(frame, image=thumbnail_image_tk)
+    thumbnail_label.image = thumbnail_image_tk
+    thumbnail_label.pack(side="left", padx=10, pady=5)
+    details_frame = ttk.Frame(frame)
+    details_frame.pack(side="left", fill="x", expand=True, padx=10)
+    title_label = ttk.Label(
+        details_frame, text=window['title'], font=("Microsoft Yahei", 12, "bold"))
+    title_label.pack(anchor="w")
+    method_label = ttk.Label(
+        details_frame, text=window['capture_method'], font=("Microsoft Yahei", 10))
+    method_label.pack(anchor="w")
+    hwnd_label = ttk.Label(
+        details_frame, text=window['hwnd'], font=("Microsoft Yahei", 10))
+    hwnd_label.pack(anchor="w")
+
+    def delete_window():
+        global capture_windows
+        capture_windows = [
+            w for w in capture_windows if w["hwnd"] != window["hwnd"]]
+        frame.destroy()
+
+    delete_button = ttk.Button(
+        frame, text="Delete", command=delete_window)
+    delete_button.pack(side="right", padx=10, pady=5)

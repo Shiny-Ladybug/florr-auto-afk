@@ -18,7 +18,7 @@ from re import match
 from rdp import rdp
 from traceback import print_exc
 import constants
-
+from capture import wgc, bitblt
 console = Console()
 
 use('Agg')
@@ -263,11 +263,12 @@ def extend_line(line):
     return line + [end]
 
 
-def apply_mouse_movement(points, speed=get_config()["advanced"]["mouseSpeed"]):
+def apply_mouse_movement(points, speed=get_config()["advanced"]["mouseSpeed"], active=False):
     pyautogui.moveTo(points[0][0], points[0][1], duration=0.5)
     pyautogui.mouseUp(button="left")
     pyautogui.mouseUp(button="right")
-    pyautogui.doubleClick()
+    if active:
+        pyautogui.doubleClick()
     pyautogui.mouseDown(button="left")
     for i in range(1, len(points), 1):
         distance_ = distance.euclidean(points[i], points[i-1])
@@ -449,14 +450,28 @@ def move_a_bit(interval=0.1):
     pyautogui.keyUp("a")
 
 
-def exposure_image(left_top_bound, right_bottom_bound, duration):
+def exposure_image(left_top_bound, right_bottom_bound, duration, hwnd=None, capture_method=None):
     start_time = time()
     frames = []
     region = (left_top_bound[0], left_top_bound[1],
               right_bottom_bound[0]-left_top_bound[0], right_bottom_bound[1]-left_top_bound[1])
     while time() - start_time < duration:
-        screenshot = pyautogui.screenshot(region=region)
-        frame = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
-        frames.append(frame)
+        if hwnd is None:
+            screenshot = pyautogui.screenshot(region=region)
+            screenshot = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
+        else:
+            if capture_method == "Windows Graphics Capture":
+                screenshot = wgc.wgc_capture(hwnd)
+            elif capture_method == "BitBlt":
+                screenshot = bitblt.bitblt_capture(hwnd)
+            screenshot = crop_image(
+                left_top_bound, right_bottom_bound, screenshot)
+            screenshot = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGBA2RGB)
+        frames.append(screenshot)
     average_frame = np.mean(frames, axis=0).astype(np.uint8)
     return average_frame
+
+
+def calculate_offset(path, hwnd):
+    rect = wgc.get_fixed_window_rect(hwnd)
+    return [(p[0] + rect[0], p[1] + rect[1]) for p in path]

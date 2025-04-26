@@ -1,4 +1,4 @@
-# florr auto afk (v1.1.1) (2025-04-20 Update)
+# florr auto afk (v1.2.0) (2025-04-26 Update)
 
 > As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
@@ -9,6 +9,34 @@
 
 ## INFO
 
+For the latest v1.2.0 , you need **WINDOWS** device to run, or you can only use v1.1.1.
+
+Latest v1.2.0 version, I added background AFK Check detection support, this requires your browser supports disabling
+
+`CalculateNativeWinOcclusion` or try to use [Firefox](https://www.mozilla.org/en-US/firefox) browser
+
+### Chrome
+
+Go to `chrome://flags/` and search for `CalculateNativeWinOcclusion` if this appears go `disable` it
+
+If you can't find the element, try run this and replace the `chrome.exe` path if needed
+
+```shell
+"C:\Program Files\Google\Chrome\Application\chrome.exe" --disable-features=CalculateNativeWinOcclusion
+```
+
+### Edge
+
+I didn't find a method to disable the future, however, I found this in `Edge Beta` , `Edge Dev` and `Edge Canary`, check the Insider Edge version at https://www.microsoft.com/en-us/edge/download/insider
+
+After you install the Insider version, go to `edge://flags/`  and do the same thing as **Chrome** does
+
+### Firefox
+
+Congratulations, Firefox disable  `CalculateNativeWinOcclusion` by default, enjoy your game in Firefox
+
+## Note
+
 I have opensourced the code here.
 
 If you want to write more automation codes, go check models in [assets](https://github.com/Shiny-Ladybug/assets)
@@ -16,6 +44,10 @@ If you want to write more automation codes, go check models in [assets](https://
 If you want to boot this without an `Internet Connection`, try to set `skipUpdate` in `config.json` to `true`.
 
 ## Changelog
+
+* 2025-04-26
+
+  Add background AFK Check detection support
 
 * 2025-04-18
 
@@ -27,7 +59,7 @@ If you want to boot this without an `Internet Connection`, try to set `skipUpdat
 
   ![GUI Settings](./imgs/settings.png)
 
-## Deploy
+## Deploy Locally
 
 ```bash
 pip install -r ./py311-requirements.txt
@@ -77,7 +109,7 @@ If you can't understand and you are Chinese, set `language` to `zh-cn` for Chine
                }
                prototype.fillText.toString = () => 'function toString() { [native code] }';
            }
-
+   
        }
    ```
 

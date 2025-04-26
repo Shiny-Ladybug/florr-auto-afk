@@ -33,7 +33,7 @@ def test_idle_thread(idled_flag, suppress_idle_detection, shared_logger):
         sleep(sleep_time)
 
 
-def afk_thread(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model, shared_logger):
+def afk_thread(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model, shared_logger, capture_windows):
     test_environment(afk_seg_model)
     log_ret("恭喜你，你成功把代码跑起来了，你是这个👍", "INFO", shared_logger, save=False)
     countdown = get_config()["runs"]["runningCountDown"]
@@ -46,114 +46,181 @@ def afk_thread(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model
         eta_time = datetime.strftime(
             datetime.fromtimestamp(eta_timestamp), '%Y-%m-%d %H:%M:%S')
         log_ret(f"ETA: {eta_time} / {eta_timestamp}", "INFO")
+    if capture_windows == []:
+        log_ret("Fullscreen detection enabled", "INFO", shared_logger)
+    else:
+        log_ret(
+            f"Window detection for {[w['title'] for w in capture_windows]} enabled", "INFO", shared_logger)
     while True:
         with idled_flag.get_lock():
             if not idled_flag.value:
                 sleep(1)
                 continue
-        image = pyautogui.screenshot()
-        ori_image = image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-        position = detect_afk(image, afk_det_model)
-        if position == None:
-            if get_config()["advanced"]["verbose"]:
-                log("No AFK window found", "EVENT", save=False)
-            if countdown != -1 and time() > eta_timestamp:
-                log_ret("Countdown Ends, program exiting", "EVENT")
-                break
-            sleep(get_config()["advanced"]["epochInterval"])
-            continue
-        log_ret("Found AFK window", "EVENT", shared_logger)
-        if get_config()["executeBinary"]["runBeforeAFK"] != "":
-            try:
-                system("start "+get_config()["executeBinary"]["runBeforeAFK"])
-            except:
-                log_ret("Cannot execute extra binary", "ERROR")
-        save_image(image, "afk", "afk")
-        left_top_bound = position[2][0]
-        right_bottom_bound = position[2][1]
-        if get_config()["exposure"]["enable"]:
-            image = exposure_image(
-                left_top_bound, right_bottom_bound, get_config()["exposure"]["duration"])
-            save_image(image, "exposure", "afk")
+        if capture_windows == []:
+            image = pyautogui.screenshot()
+            ori_image = image = cv2.cvtColor(
+                np.array(image), cv2.COLOR_RGB2BGR)
+            position = detect_afk(image, afk_det_model)
+            if position == None:
+                if get_config()["advanced"]["verbose"]:
+                    log("No AFK window found", "EVENT", save=False)
+                if countdown != -1 and time() > eta_timestamp:
+                    log_ret("Countdown Ends, program exiting", "EVENT")
+                    break
+                sleep(get_config()["advanced"]["epochInterval"])
+                continue
+            log_ret("Found AFK window", "EVENT", shared_logger)
+            if get_config()["executeBinary"]["runBeforeAFK"] != "":
+                try:
+                    system("start "+get_config()
+                           ["executeBinary"]["runBeforeAFK"])
+                except:
+                    log_ret("Cannot execute extra binary", "ERROR")
+            save_image(image, "afk", "afk")
+            left_top_bound = position[2][0]
+            right_bottom_bound = position[2][1]
+            if get_config()["exposure"]["enable"]:
+                image = exposure_image(
+                    left_top_bound, right_bottom_bound, get_config()["exposure"]["duration"])
+                save_image(image, "exposure", "afk")
+            else:
+                image = crop_image(
+                    left_top_bound, right_bottom_bound, ori_image)
+            execute_afk(position, ori_image, image, afk_seg_model,
+                        left_top_bound, right_bottom_bound, suppress_idle_detection, shared_logger, type="fullscreen")
         else:
-            image = crop_image(left_top_bound, right_bottom_bound, ori_image)
-        results = afk_seg_model.predict(
-            image, retina_masks=True, verbose=False)
-        masks = results[0].masks
-        start = position[0]
-        end = position[1]
-        if start != None:
-            start = (round(position[0][0]), round(position[0][1]))
-            start = (start[0] + left_top_bound[0],
-                     start[1] + left_top_bound[1])
-        else:
-            log_ret("No start found", "WARNING", shared_logger)
-        if end != None:
-            end = (round(position[1][0]), round(position[1][1]))
-            end = (end[0] + left_top_bound[0], end[1] + left_top_bound[1])
-        else:
-            log_ret("No end found, going for linear prediction",
-                    "WARNING", shared_logger)
-        if masks == None:
-            log_ret("No masks found", "ERROR", shared_logger)
-            save_image(image, "mask", "error")
-            sleep(1)
-            continue
-        log_ret("Using yolo to bypass AFK", "EVENT", shared_logger)
-        line_ = segment_path(masks, start, end, left_top_bound)
-        line = [line_[i]
-                for i in range(0, len(line_), get_config()["advanced"]["optimizeQuantization"])]
-        line = rdp(line, get_config()["advanced"]["rdpEpsilon"])
-        try:
-            line = extend_line(line)
-        except:
-            pass
-        final_np = np.array(line, np.int32)
-        final_np = final_np.reshape((-1, 1, 2))
-        if start != None:
-            cv2.circle(ori_image, start, 5, (0, 255, 0), -1)
-        if end != None:
-            cv2.circle(ori_image, end, 5, (0, 0, 255), -1)
-        cv2.polylines(ori_image, [final_np], False, (0, 255, 0), 2)
-        cv2.rectangle(ori_image, left_top_bound,
-                      right_bottom_bound, (0, 0, 255), 2)
-        for point in line:
-            cv2.circle(ori_image, point, 3, (255, 0, 0), -1)
-        save_image(ori_image, "afk_solution", "afk")
-        if get_config()["advanced"]["showLogger"]:
-            cv2.imshow("image", ori_image)
-            cv2.waitKey(0)
-        if get_config()["advanced"]["useOBS"]:
-            obs("start")
-            sleep(1)
+            results = []
+            for window in capture_windows:
+                if window["capture_method"] == "BitBlt":
+                    image = bitblt.bitblt_capture(window["hwnd"])
+                elif window["capture_method"] == "Windows Graphics Capture":
+                    image = wgc.wgc_capture(window["hwnd"])
+                ori_image = image = cv2.cvtColor(
+                    np.array(image), cv2.COLOR_RGBA2RGB)
+                position = detect_afk(image, afk_det_model)
+                if position == None:
+                    results.append(False)
+                    continue
+                log_ret(
+                    f"Found AFK window in {window['title']}", "EVENT", shared_logger)
+                if get_config()["executeBinary"]["runBeforeAFK"] != "":
+                    try:
+                        system("start "+get_config()
+                               ["executeBinary"]["runBeforeAFK"])
+                    except:
+                        log_ret("Cannot execute extra binary", "ERROR")
+                save_image(image, "afk", "afk")
+                left_top_bound = position[2][0]
+                right_bottom_bound = position[2][1]
+                if get_config()["exposure"]["enable"]:
+                    image = exposure_image(
+                        left_top_bound, right_bottom_bound, get_config()["exposure"]["duration"], window["hwnd"], window["capture_method"])
+                    save_image(image, "exposure", "afk")
+                else:
+                    image = crop_image(
+                        left_top_bound, right_bottom_bound, ori_image)
+                execute_afk(position, ori_image, image, afk_seg_model,
+                            left_top_bound, right_bottom_bound, suppress_idle_detection, shared_logger, type="window", hwnd=window['hwnd'])
+                results.append(True)
+            if not any(results):
+                if get_config()["advanced"]["verbose"]:
+                    log("No AFK window found", "EVENT", save=False)
+                if countdown != -1 and time() > eta_timestamp:
+                    log_ret("Countdown Ends, program exiting", "EVENT")
+                    break
+                sleep(get_config()["advanced"]["epochInterval"])
+                continue
+
+
+def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right_bottom_bound, suppress_idle_detection, shared_logger, type="fullscreen", hwnd=None):
+    results = afk_seg_model.predict(
+        image, retina_masks=True, verbose=False)
+    masks = results[0].masks
+    start = position[0]
+    end = position[1]
+    if start != None:
+        start = (round(position[0][0]), round(position[0][1]))
+        start = (start[0] + left_top_bound[0],
+                 start[1] + left_top_bound[1])
+    else:
+        log_ret("No start found", "WARNING", shared_logger)
+    if end != None:
+        end = (round(position[1][0]), round(position[1][1]))
+        end = (end[0] + left_top_bound[0], end[1] + left_top_bound[1])
+    else:
+        log_ret("No end found, going for linear prediction",
+                "WARNING", shared_logger)
+    if masks == None:
+        log_ret("No masks found", "ERROR", shared_logger)
+        save_image(image, "mask", "error")
+        sleep(1)
+        return
+    log_ret("Using yolo to bypass AFK", "EVENT", shared_logger)
+    line_ = segment_path(masks, start, end, left_top_bound)
+    line = [line_[i]
+            for i in range(0, len(line_), get_config()["advanced"]["optimizeQuantization"])]
+    line = rdp(line, get_config()["advanced"]["rdpEpsilon"])
+    try:
+        line = extend_line(line)
+    except:
+        pass
+    final_np = np.array(line, np.int32)
+    final_np = final_np.reshape((-1, 1, 2))
+    if start != None:
+        cv2.circle(ori_image, start, 5, (0, 255, 0), -1)
+    if end != None:
+        cv2.circle(ori_image, end, 5, (0, 0, 255), -1)
+    cv2.polylines(ori_image, [final_np], False, (0, 255, 0), 2)
+    cv2.rectangle(ori_image, left_top_bound,
+                  right_bottom_bound, (0, 0, 255), 2)
+    for point in line:
+        cv2.circle(ori_image, point, 3, (255, 0, 0), -1)
+    save_image(ori_image, "afk_solution", "afk")
+    if get_config()["advanced"]["showLogger"]:
+        cv2.imshow("image", ori_image)
+        cv2.waitKey(0)
+    if get_config()["advanced"]["useOBS"]:
+        obs("start")
+        sleep(1)
+    if type == "fullscreen":
         if get_config()["advanced"]["moveMouse"]:
             with suppress_idle_detection.get_lock():
                 suppress_idle_detection.value = True
             ori_pos = pyautogui.position()
-            apply_mouse_movement(line)
+            apply_mouse_movement(line, active=True)
             pyautogui.moveTo(ori_pos[0], ori_pos[1], duration=0.1)
             with suppress_idle_detection.get_lock():
                 suppress_idle_detection.value = False
         if get_config()["runs"]["moveAfterAFK"]:
             move_a_bit()
-        if get_config()["executeBinary"]["runAfterAFK"] != "":
-            try:
-                system("start "+get_config()["executeBinary"]["runAfterAFK"])
-            except:
-                log_ret("Cannot execute extra binary", "ERROR", shared_logger)
-        if get_config()["advanced"]["useOBS"]:
-            sleep(1)
-            obs("stop")
+    else:
+        ori_pos = pyautogui.position()
+        now_windows = gw.getWindowsWithTitle("")
+        for w in now_windows:
+            if w._hWnd == hwnd:
+                w.activate()
+                break
+        if get_config()["advanced"]["moveMouse"]:
+            with suppress_idle_detection.get_lock():
+                suppress_idle_detection.value = True
+            apply_mouse_movement(calculate_offset(line, hwnd), active=False)
+            pyautogui.moveTo(ori_pos[0], ori_pos[1], duration=0.1)
+            with suppress_idle_detection.get_lock():
+                suppress_idle_detection.value = False
+        if get_config()["runs"]["moveAfterAFK"]:
+            move_a_bit()
+        w.minimize()
+    if get_config()["executeBinary"]["runAfterAFK"] != "":
+        try:
+            system("start "+get_config()["executeBinary"]["runAfterAFK"])
+        except:
+            log_ret("Cannot execute extra binary", "ERROR", shared_logger)
+    if get_config()["advanced"]["useOBS"]:
         sleep(1)
-        position = detect_afk(cv2.cvtColor(
-            np.array(pyautogui.screenshot()), cv2.COLOR_RGB2BGR), afk_det_model)
-        if position != None:
-            log_ret("Cannot bypass AFK", "ERROR", shared_logger)
-        else:
-            log_ret("Bypassed AFK", "EVENT", shared_logger)
+        obs("stop")
 
 
-def run_segment(idled_flag, suppress_idle_detection, shared_logger):
+def run_segment(idled_flag, suppress_idle_detection, shared_logger, capture_windows):
     try:
         afk_seg_model = YOLO(get_config()["yoloConfig"]["segModel"])
         afk_det_model = YOLO(get_config()["yoloConfig"]["detModel"])
@@ -168,7 +235,7 @@ def run_segment(idled_flag, suppress_idle_detection, shared_logger):
     idle_thread = multiprocessing.Process(
         target=test_idle_thread, args=(idled_flag, suppress_idle_detection, shared_logger))
     afk_thread_process = multiprocessing.Process(
-        target=afk_thread, args=(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model, shared_logger))
+        target=afk_thread, args=(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model, shared_logger, capture_windows))
 
     if get_config()["runs"]["autoTakeOverWhenIdle"]:
         idle_thread.start()
@@ -179,7 +246,7 @@ def run_segment(idled_flag, suppress_idle_detection, shared_logger):
     afk_thread_process.join()
 
 
-def start_segment_process(segment_running, shared_logger):
+def start_segment_process(segment_running, shared_logger, capture_windows):
     global segment_process, idled_flag, suppress_idle_detection, idle_thread, afk_thread_process
     segment_running.value = True
     if segment_process is not None and segment_process.is_alive():
@@ -197,46 +264,43 @@ def start_segment_process(segment_running, shared_logger):
         log_ret("Idle Detection is currently enabled, set `autoTakeOverWhenIdle` to `false` if you just want to test the AFK Bypass ability",
                 "WARNING", shared_logger, save=False)
     segment_process = multiprocessing.Process(
-        target=run_segment, args=(idled_flag, suppress_idle_detection, shared_logger))
+        target=run_segment, args=(idled_flag, suppress_idle_detection, shared_logger, capture_windows))
     segment_process.start()
     log_ret("Segment process started", "INFO", shared_logger)
 
 
-def toggle_segment_process():
+def toggle_segment_process(capture_windows):
     global segment_process, segment_running, shared_logger, idle_thread, afk_thread_process
 
     if segment_running.value:
         segment_running.value = False
 
-        # Terminate segment_process if it exists
-        if segment_process is not None and segment_process.is_alive():
-            segment_process.terminate()
-            segment_process.join()
-        segment_process = None
-
-        # Terminate idle_thread if it exists
         if idle_thread is not None and idle_thread.is_alive():
             idle_thread.terminate()
             idle_thread.join()
             idle_thread = None
 
-        # Terminate afk_thread_process if it exists
         if afk_thread_process is not None and afk_thread_process.is_alive():
             afk_thread_process.terminate()
             afk_thread_process.join()
             afk_thread_process = None
 
+        if segment_process is not None and segment_process.is_alive():
+            segment_process.terminate()
+            segment_process.join()
+        segment_process = None
+
         log_ret("Segment process and associated threads terminated.",
                 "INFO", shared_logger)
         update_page("launch")
     else:
-        start_segment_process(segment_running, shared_logger)
+        start_segment_process(segment_running, shared_logger, capture_windows)
         log_ret("Segment process started.", "INFO", shared_logger)
         update_page("console")
 
 
 def update_page(new_page_stat):
-    global page_stat, console_text
+    global page_stat, console_text, capture_windows
     theme = darkdetect.theme() if get_config(
     )["gui"]["theme"] == "auto" else ("Dark" if get_config()["gui"]["theme"].lower() == "dark" else "Light")
     page_stat = new_page_stat
@@ -263,10 +327,9 @@ def update_page(new_page_stat):
             text="Run" if not segment_running.value else "Terminate",
             width=30,
             style="Large.TButton",
-            command=toggle_segment_process
+            command=lambda: toggle_segment_process(capture_windows)
         )
         launch_button.pack(side="bottom", anchor="se", padx=20, pady=20)
-
     elif page_stat == "console":
         if theme == "Dark":
             console_bg = "#1c1c1c"
@@ -371,6 +434,14 @@ def update_page(new_page_stat):
                     frame, image=exposure_image_tk, text=f"exposure_{name}.png", compound="top")
                 exposure_label.image = exposure_image_tk
                 exposure_label.pack(side="left", padx=5)
+    elif page_stat == "hooks":
+        button_frame = ttk.Frame(main_content)
+        button_frame.pack(fill="x", pady=5)
+        plus_button = ttk.Button(
+            button_frame, text="Capture Window", command=lambda: open_capture_window(root, main_content))
+        plus_button.pack(side="right", padx=10, pady=10)
+        for window in capture_windows:
+            update_capture_menu(main_content, window)
 
 
 if __name__ == "__main__":
@@ -399,6 +470,9 @@ if __name__ == "__main__":
         console_button = ttk.Button(sidebar, text="Console",
                                     width=20, command=lambda: update_page("console"))
         console_button.pack(pady=10)
+        hook_button = ttk.Button(
+            sidebar, text="Hooks", width=20, command=lambda: update_page("hooks"))
+        hook_button.pack(pady=10)
         history_button = ttk.Button(
             sidebar, text="History", width=20, command=lambda: update_page("history"))
         history_button.pack(pady=10)
