@@ -195,7 +195,7 @@ def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right
             move_a_bit()
     else:
         ori_pos = pyautogui.position()
-        now_windows = gw.getWindowsWithTitle("")
+        now_windows: list[gw.Win32Window] = gw.getWindowsWithTitle("")
         for w in now_windows:
             if w._hWnd == hwnd:
                 w.activate()
@@ -209,7 +209,8 @@ def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right
                 suppress_idle_detection.value = False
         if get_config()["runs"]["moveAfterAFK"]:
             move_a_bit()
-        w.minimize()
+        sleep(1)
+        pyautogui.hotkey('alt', 'tab')
     if get_config()["executeBinary"]["runAfterAFK"] != "":
         try:
             system("start "+get_config()["executeBinary"]["runAfterAFK"])
