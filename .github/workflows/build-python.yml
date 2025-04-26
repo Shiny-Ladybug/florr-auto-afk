@@ -50,7 +50,7 @@ jobs:
       - name: Run PyInstaller
         shell: powershell
         run: |
-          python -m PyInstaller --onedir --console segment.spec
+          python -m PyInstaller segment.spec
 
       - name: Creating Compressed Executable
         shell: powershell
