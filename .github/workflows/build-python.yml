@@ -61,7 +61,7 @@ jobs:
           Copy-Item -Path ./models -Destination ./dist/segment/models -Recurse
           Copy-Item -Path ./gui -Destination ./dist/segment/gui -Recurse
           echo "Compressing ./dist/segment directory into a ZIP file..."
-          Compress-Archive -Path ./dist/segment/* -DestinationPath ./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}-auto.zip
+          Compress-Archive -Path ./dist/segment/* -DestinationPath ./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.zip
 
       - name: Upload Executable to Release
         if: ${{ github.event_name == 'push' }}  # Only run on push events
