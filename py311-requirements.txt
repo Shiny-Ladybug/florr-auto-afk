@@ -16,4 +16,5 @@ Pillow==9.3.0
 pygetwindow
 pywin32
 pyler
+psutil
 playsound==1.2.2
