@@ -1,12 +1,22 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import os
+import onnxruntime
+
+onnxruntime_dll_path = os.path.join(
+    os.path.dirname(onnxruntime.__file__), "capi", "onnxruntime_providers_shared.dll"
+)
+
+binaries = []
+if os.path.exists(onnxruntime_dll_path):
+    binaries.append((onnxruntime_dll_path, './onnxruntime/capi'))
 
 a = Analysis(
     ['./segment.py'],
     pathex=[],
-    binaries=[],
+    binaries=binaries,
     datas=[],
-    hiddenimports=['shapely', 'pyclipper', 'pyscreeze', 'pytweening', 'pymsgbox', 'psutil'],
+    hiddenimports=['shapely', 'pyclipper', 'pyscreeze', 'pytweening', 'pymsgbox', 'psutil', 'onnxruntime', 'plyer', 'playsound'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
