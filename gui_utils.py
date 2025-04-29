@@ -8,7 +8,7 @@ from win32process import GetWindowThreadProcessId
 from random import choice
 from capture import bitblt, wgc
 from segment_utils import *
-from plyer import notification
+# from plyer import notification
 from playsound import playsound
 import sv_ttk
 import json
@@ -560,13 +560,13 @@ def get_ui_translation(key_, lang=get_config()["gui"]["language"]):
 
 
 def send_notification(message: str, epoch: int = 3):
-    if get_config()["runs"]["notify"]:
+    '''if get_config()["runs"]["notify"]:
         notification.notify(
             title='florr-auto-afk',
             message=message,
             timeout=1,
             app_icon='./gui/icon.ico'
-        )
+        )'''
     if get_config()["runs"]["sound"]:
         for _ in range(epoch):
             playsound(get_config()["runs"]["soundPath"])
