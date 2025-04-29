@@ -33,7 +33,22 @@ def test_idle_thread(idled_flag, suppress_idle_detection, shared_logger):
         sleep(sleep_time)
 
 
-def afk_thread(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model, shared_logger, capture_windows):
+def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windows):
+    try:
+        # afk_seg_model = YOLO(get_config()["yoloConfig"]["segModel"])
+        # afk_det_model = YOLO(get_config()["yoloConfig"]["detModel"])
+        afk_seg_model = onnxruntime.InferenceSession(get_config()["yoloConfig"]["segModel"], providers=[
+            'CPUExecutionProvider'])
+        afk_det_model = onnxruntime.InferenceSession(get_config()["yoloConfig"]["detModel"], providers=[
+            'CPUExecutionProvider'])
+    except:
+        log_ret("YOLO models are corrupted, trying to restore files",
+                "ERROR", shared_logger)
+        remove(get_config()["yoloConfig"]["segModel"])
+        remove(get_config()["yoloConfig"]["detModel"])
+        remove("./models/version")
+        return
+
     test_environment(afk_seg_model)
     log_ret("恭喜你，你成功把代码跑起来了，你是这个👍", "INFO", shared_logger, save=False)
     countdown = get_config()["runs"]["runningCountDown"]
@@ -70,6 +85,8 @@ def afk_thread(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model
                 sleep(get_config()["advanced"]["epochInterval"])
                 continue
             log_ret("Found AFK window", "EVENT", shared_logger)
+            multiprocessing.Process(
+                target=send_notification, args=("AFK Detected", 3)).start()
             if get_config()["executeBinary"]["runBeforeAFK"] != "":
                 try:
                     system("start "+get_config()
@@ -103,6 +120,8 @@ def afk_thread(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model
                     continue
                 log_ret(
                     f"Found AFK window in {window['title']}", "EVENT", shared_logger)
+                multiprocessing.Process(
+                    target=send_notification, args=("AFK Detected", 3)).start()
                 if get_config()["executeBinary"]["runBeforeAFK"] != "":
                     try:
                         system("start "+get_config()
@@ -133,9 +152,10 @@ def afk_thread(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model
 
 
 def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right_bottom_bound, suppress_idle_detection, shared_logger, type="fullscreen", hwnd=None):
-    results = afk_seg_model.predict(
+    '''results = afk_seg_model.predict(
         image, retina_masks=True, verbose=False)
-    masks = results[0].masks
+    masks = results[0].masks'''
+    masks = pred.segmentation.onnx_seg_afk(afk_seg_model, image)
     start = position[0]
     end = position[1]
     if start != None:
@@ -150,7 +170,7 @@ def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right
     else:
         log_ret("No end found, going for linear prediction",
                 "WARNING", shared_logger)
-    if masks == None:
+    if masks == []:
         log_ret("No masks found", "ERROR", shared_logger)
         save_image(image, "mask", "error")
         sleep(1)
@@ -222,21 +242,10 @@ def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right
 
 
 def run_segment(idled_flag, suppress_idle_detection, shared_logger, capture_windows):
-    try:
-        afk_seg_model = YOLO(get_config()["yoloConfig"]["segModel"])
-        afk_det_model = YOLO(get_config()["yoloConfig"]["detModel"])
-    except:
-        log_ret("YOLO models are corrupted, trying to restore files",
-                "ERROR", shared_logger)
-        remove(get_config()["yoloConfig"]["segModel"])
-        remove(get_config()["yoloConfig"]["detModel"])
-        remove("./models/version")
-        return
-
     idle_thread = multiprocessing.Process(
         target=test_idle_thread, args=(idled_flag, suppress_idle_detection, shared_logger))
     afk_thread_process = multiprocessing.Process(
-        target=afk_thread, args=(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model, shared_logger, capture_windows))
+        target=afk_thread, args=(idled_flag, suppress_idle_detection, shared_logger, capture_windows))
 
     if get_config()["runs"]["autoTakeOverWhenIdle"]:
         idle_thread.start()
@@ -272,7 +281,6 @@ def start_segment_process(segment_running, shared_logger, capture_windows):
 
 def toggle_segment_process(capture_windows):
     global segment_process, segment_running, shared_logger, idle_thread, afk_thread_process
-
     if segment_running.value:
         segment_running.value = False
 
@@ -302,17 +310,17 @@ def toggle_segment_process(capture_windows):
 
 def update_page(new_page_stat):
     global page_stat, console_text, capture_windows
-    theme = darkdetect.theme() if get_config(
+    theme = detect_theme() if get_config(
     )["gui"]["theme"] == "auto" else ("Dark" if get_config()["gui"]["theme"].lower() == "dark" else "Light")
     page_stat = new_page_stat
     for widget in main_content.winfo_children():
         widget.destroy()
     if page_stat == "launch":
         canvas = add_rounded_image_to_canvas(
-            main_content, "./gui/bg.png", theme)
+            main_content, f"./gui/backgrounds/{choice(listdir('./gui/backgrounds'))}", theme)
         announcement_title = ttk.Label(
             main_content,
-            text="Announcements:",
+            text=f"{get_ui_translation('launch_announcements')}:",
             font=("Microsoft Yahei", 15),
         )
         announcement_label = ttk.Label(
@@ -325,10 +333,12 @@ def update_page(new_page_stat):
         announcement_label.pack(anchor="w", pady=0)
         launch_button = ttk.Button(
             main_content,
-            text="Run" if not segment_running.value else "Terminate",
+            text=get_ui_translation(
+                "launch_run") if not segment_running.value else "Terminate",
             width=30,
             style="Large.TButton",
-            command=lambda: toggle_segment_process(capture_windows)
+            command=lambda: toggle_segment_process([{"title": w["title"],
+                                                     "hwnd": w["hwnd"], "capture_method": w["capture_method"]} for w in capture_windows])
         )
         launch_button.pack(side="bottom", anchor="se", padx=20, pady=20)
     elif page_stat == "console":
@@ -370,7 +380,7 @@ def update_page(new_page_stat):
 
         clear_console_button = ttk.Button(
             main_content,
-            text="Clear Console",
+            text=get_ui_translation("console_clear"),
             command=lambda: clear_console()
         )
         clear_console_button.pack(side="bottom", anchor="se", padx=10, pady=5)
@@ -408,6 +418,10 @@ def update_page(new_page_stat):
         canvas.bind("<Enter>", lambda e: canvas.bind_all(
             "<MouseWheel>", _on_mouse_wheel))
         canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+        if not path.exists("./images"):
+            mkdir("./images")
+        if not path.exists("./images/afk"):
+            mkdir("./images/afk")
         images = listdir("./images/afk")
         names = [name.removeprefix("afk_solution_").removesuffix(".png") for name in images if name.startswith(
             "afk_solution_") and name.endswith(".png")]
@@ -439,7 +453,7 @@ def update_page(new_page_stat):
         button_frame = ttk.Frame(main_content)
         button_frame.pack(fill="x", pady=5)
         plus_button = ttk.Button(
-            button_frame, text="Capture Window", command=lambda: open_capture_window(root, main_content))
+            button_frame, text=get_ui_translation("hooks_capture"), command=lambda: open_capture_window(root, main_content))
         plus_button.pack(side="right", padx=10, pady=10)
         for window in capture_windows:
             update_capture_menu(main_content, window)
@@ -465,20 +479,20 @@ if __name__ == "__main__":
         root.minsize(1000, 600)
         sidebar = ttk.Frame(root, width=150)
         sidebar.pack(side="left", fill="y", padx=10)
-        launch_button = ttk.Button(sidebar, text="Launch",
+        launch_button = ttk.Button(sidebar, text=get_ui_translation("page_launch"),
                                    width=20, command=lambda: update_page("launch"))
         launch_button.pack(pady=10)
-        console_button = ttk.Button(sidebar, text="Console",
+        console_button = ttk.Button(sidebar, text=get_ui_translation("page_console"),
                                     width=20, command=lambda: update_page("console"))
         console_button.pack(pady=10)
         hook_button = ttk.Button(
-            sidebar, text="Hooks", width=20, command=lambda: update_page("hooks"))
+            sidebar, text=get_ui_translation("page_hooks"), width=20, command=lambda: update_page("hooks"))
         hook_button.pack(pady=10)
         history_button = ttk.Button(
-            sidebar, text="History", width=20, command=lambda: update_page("history"))
+            sidebar, text=get_ui_translation("page_history"), width=20, command=lambda: update_page("history"))
         history_button.pack(pady=10)
         settings_button = ttk.Button(
-            sidebar, text="Settings", width=20, command=lambda: update_page("settings"))
+            sidebar, text=get_ui_translation("page_settings"), width=20, command=lambda: update_page("settings"))
         settings_button.pack(side="bottom", pady=10)
         main_content = ttk.Frame(root)
         main_content.pack(side="left", fill="both", expand=True)

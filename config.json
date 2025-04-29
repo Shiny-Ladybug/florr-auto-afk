@@ -5,7 +5,10 @@
         "moveAfterAFK": true,
         "idleTimeThreshold": 10,
         "idleDetInterval": 3,
-        "idleDetIntervalMax": 10
+        "idleDetIntervalMax": 10,
+        "notify": true,
+        "sound": false,
+        "soundPath": "./gui/notify.mp3"
     },
     "exposure": {
         "enable": true,
@@ -38,7 +41,7 @@
         "runAfterAFK": ""
     },
     "yoloConfig": {
-        "segModel": "./models/afk-seg.pt",
-        "detModel": "./models/afk-det.pt"
+        "segModel": "./models/afk-seg.onnx",
+        "detModel": "./models/afk-det.onnx"
     }
 }

@@ -1,26 +1,32 @@
 import pygetwindow as gw
 import pywinstyles
 from PIL import Image, ImageTk, ImageDraw, ImageFont
-import ctypes
-import tkinter as tk
 from tkinter import ttk
-import darkdetect
-import sv_ttk
-import json
+from darkdetect import theme as detect_theme
+from psutil import Process
+from win32process import GetWindowThreadProcessId
+from random import choice
 from capture import bitblt, wgc
 from segment_utils import *
+from plyer import notification
+from playsound import playsound
+import sv_ttk
+import json
+import ctypes
+import tkinter as tk
+
 
 config = get_config()
 capture_windows = []
 
 
-theme = darkdetect.theme() if get_config(
+theme = detect_theme() if get_config(
 )["gui"]["theme"] == "auto" else ("Dark" if get_config()["gui"]["theme"].lower() == "dark" else "Light")
 
 
 def apply_theme_to_titlebar(root):
     version = getwindowsversion()
-    theme = darkdetect.theme() if get_config(
+    theme = detect_theme() if get_config(
     )["gui"]["theme"] == "auto" else ("Dark" if get_config()["gui"]["theme"].lower() == "dark" else "Light")
 
     if version.major == 10 and version.build >= 22000:
@@ -398,29 +404,30 @@ def open_capture_window(root, main_content):
         if selected_title == "Select a window":
             create_window.after(1000, update_preview)
             return
-        for w in available_windows:
-            if w.title == selected_title:
-                hwnd = w._hWnd
-                try:
-                    if capture_method.get() == "BitBlt":
-                        frame = bitblt.bitblt_capture(hwnd)
-                    elif capture_method.get() == "Windows Graphics Capture":
-                        frame = wgc.wgc_capture(hwnd)
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2RGBA)
-                    h, w = frame.shape[:2]
-                    scale = min(800 / w, 400 / h)
-                    new_w, new_h = int(w * scale), int(h * scale)
-                    frame = cv2.resize(frame, (new_w, new_h))
-                    img = Image.fromarray(frame)
-                    img_tk = ImageTk.PhotoImage(img)
-                    preview_label.config(image=img_tk)
-                    preview_label.image = img_tk
-                except Exception as e:
-                    print(f"Error capturing window: {e}")
-                break
+        available_windows = gw.getWindowsWithTitle("")
+        names = [
+            f"[{Process(GetWindowThreadProcessId(w._hWnd)[1]).name()}]: {w.title}" for w in available_windows]
+        w = available_windows[names.index(selected_title)]
+        hwnd = w._hWnd
+        try:
+            if capture_method.get() == "BitBlt":
+                frame = bitblt.bitblt_capture(hwnd)
+            elif capture_method.get() == "Windows Graphics Capture":
+                frame = wgc.wgc_capture(hwnd)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2RGBA)
+            h, w = frame.shape[:2]
+            scale = min(800 / w, 400 / h)
+            new_w, new_h = int(w * scale), int(h * scale)
+            frame = cv2.resize(frame, (new_w, new_h))
+            img = Image.fromarray(frame)
+            img_tk = ImageTk.PhotoImage(img)
+            preview_label.config(image=img_tk)
+            preview_label.image = img_tk
+        except Exception as e:
+            print(f"Error capturing window: {e}")
         create_window.after(1000, update_preview)
     create_window = tk.Toplevel(root)
-    create_window.title("Capture Window")
+    create_window.title(get_ui_translation("capture_winname"))
     create_window.iconbitmap("./gui/icon.ico")
     create_window.geometry("1000x600")
     create_window.resizable(False, False)
@@ -432,7 +439,7 @@ def open_capture_window(root, main_content):
     bottom_frame.pack(pady=10, padx=20, fill="x")
 
     available_windows_label = ttk.Label(
-        bottom_frame, text="Windows", font=("Microsoft Yahei", 12))
+        bottom_frame, text=get_ui_translation("capture_windows"), font=("Microsoft Yahei", 12))
     available_windows_label.pack(side="left", padx=10)
 
     available_windows = gw.getWindowsWithTitle("")
@@ -442,7 +449,8 @@ def open_capture_window(root, main_content):
     choose_window = ttk.Combobox(
         bottom_frame,
         name="window_selector",
-        values=[w.title for w in available_windows],
+        values=[
+            f"[{Process(GetWindowThreadProcessId(w._hWnd)[1]).name()}]: {w.title}" for w in available_windows],
         state="readonly",
         font=("Microsoft Yahei", 12),
     )
@@ -451,7 +459,7 @@ def open_capture_window(root, main_content):
     capture_method_frame = ttk.Frame(create_window)
     capture_method_frame.pack(pady=10, padx=20, fill="x")
     capture_method_label = ttk.Label(
-        capture_method_frame, text="Capture Method", font=("Microsoft Yahei", 12))
+        capture_method_frame, text=get_ui_translation("capture_method"), font=("Microsoft Yahei", 12))
     capture_method_label.pack(side="left", padx=10)
     capture_method = tk.StringVar(value="Windows Graphics Capture")
     capture_method_selector = ttk.Combobox(
@@ -465,12 +473,13 @@ def open_capture_window(root, main_content):
     available_windows = [w for w in available_windows if w.title != ""]
     available_windows = sorted(
         available_windows, key=lambda w: w.title.lower())
-    choose_window["values"] = [w.title for w in available_windows]
+    choose_window["values"] = [
+        f"[{Process(GetWindowThreadProcessId(w._hWnd)[1]).name()}]: {w.title}" for w in available_windows]
     capture_method_selector.pack(side="left", fill="x", expand=True, padx=10)
     choose_window.bind("<<ComboboxSelected>>", lambda e: update_preview())
     add_button = ttk.Button(
         bottom_frame,
-        text="Add",
+        text=get_ui_translation("capture_add"),
         command=lambda: add_window_hook(
             choose_window.get(), capture_method.get(), create_window, main_content),
     )
@@ -482,9 +491,10 @@ def add_window_hook(title, capture_method, create_window, main_content):
     global capture_windows
     if title == "Select a window":
         return
-    available_windows = gw.getWindowsWithTitle(title)
-    available_windows = [w for w in available_windows if w.title == title]
-    available_windows = available_windows[0]
+    available_windows = gw.getWindowsWithTitle("")
+    names = [
+        f"[{Process(GetWindowThreadProcessId(w._hWnd)[1]).name()}]: {w.title}" for w in available_windows]
+    available_windows = available_windows[names.index(title)]
     hwnd = available_windows._hWnd
     for w in capture_windows:
         if w["hwnd"] == hwnd:
@@ -537,3 +547,26 @@ def update_capture_menu(main_content, window):
     delete_button = ttk.Button(
         frame, text="Delete", command=delete_window)
     delete_button.pack(side="right", padx=10, pady=5)
+
+
+def get_ui_translation(key_, lang=get_config()["gui"]["language"]):
+    translations = {}
+    with open("./gui/i18n/ui_"+lang+".txt", "r", encoding="utf-8") as f:
+        for line in f:
+            if "=" in line:
+                key, value = line.strip().split("=", 1)
+                translations[key] = value
+    return translations.get(key_, key_)
+
+
+def send_notification(message: str, epoch: int = 3):
+    if get_config()["runs"]["notify"]:
+        notification.notify(
+            title='florr-auto-afk',
+            message=message,
+            timeout=1,
+            app_icon='./gui/icon.ico'
+        )
+    if get_config()["runs"]["sound"]:
+        for _ in range(epoch):
+            playsound(get_config()["runs"]["soundPath"])

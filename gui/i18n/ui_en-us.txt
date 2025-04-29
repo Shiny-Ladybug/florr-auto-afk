@@ -1,0 +1,13 @@
+page_launch=Launch
+page_console=Console
+page_hooks=Hooks
+page_history=History
+page_settings=Settings
+launch_announcements=Announcements
+launch_run=Run
+console_clear=Clear Console
+hooks_capture=Capture Window
+capture_winname=Capture Window
+capture_windows=Windows
+capture_method=Capture Method
+capture_add=Add

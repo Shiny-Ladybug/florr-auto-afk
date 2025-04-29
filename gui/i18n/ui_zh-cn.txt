@@ -1,0 +1,13 @@
+page_launch=运行
+page_console=终端
+page_hooks=捕获
+page_history=历史
+page_settings=设置
+launch_announcements=公告
+launch_run=启动
+console_clear=清除终端
+hooks_capture=添加捕获窗口
+capture_winname=捕获
+capture_windows=窗口
+capture_method=捕获方式
+capture_add=添加

@@ -75,4 +75,4 @@ jobs:
             --notes "Automated release for version v${{ steps.get_version.outputs.version }}" \
             --target main
           # Upload the ZIP file to the release
-          gh release upload "v${{ steps.get_version.outputs.version }}" "./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}-auto.zip" --clobber
+          gh release upload "v${{ steps.get_version.outputs.version }}" "./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.zip" --clobber
