@@ -132,3 +132,4 @@ if __name__ == "__main__":
     model = onnxruntime.InferenceSession("./models/afk-det.onnx", providers=[
         'CPUExecutionProvider'])
     detected, _ = onnx_detect_afk(model, img)
+    print(detected)
