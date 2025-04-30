@@ -7,7 +7,7 @@
         "idleDetInterval": 3,
         "idleDetIntervalMax": 10,
         "notify": true,
-        "sound": false,
+        "sound": true,
         "soundPath": "./gui/notify.mp3"
     },
     "exposure": {
@@ -29,7 +29,7 @@
         "extendLength": 30,
         "mouseSpeed": 100,
         "skipUpdate": false,
-        "environment": false,
+        "environment": true,
         "windowSizeTolerance": 0.1,
         "windowSizeRatio": [
             0.787,
@@ -41,7 +41,7 @@
         "runAfterAFK": ""
     },
     "yoloConfig": {
-        "segModel": "./models/afk-seg.onnx",
-        "detModel": "./models/afk-det.onnx"
+        "segModel": "./models/afk-seg.pt",
+        "detModel": "./models/afk-det.pt"
     }
 }

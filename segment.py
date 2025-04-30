@@ -35,12 +35,10 @@ def test_idle_thread(idled_flag, suppress_idle_detection, shared_logger):
 
 def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windows):
     try:
-        # afk_seg_model = YOLO(get_config()["yoloConfig"]["segModel"])
-        # afk_det_model = YOLO(get_config()["yoloConfig"]["detModel"])
-        afk_seg_model = onnxruntime.InferenceSession(get_config()["yoloConfig"]["segModel"], providers=[
-            'CPUExecutionProvider'])
-        afk_det_model = onnxruntime.InferenceSession(get_config()["yoloConfig"]["detModel"], providers=[
-            'CPUExecutionProvider'])
+        afk_seg_model = YOLO(get_config()["yoloConfig"]["segModel"])
+        afk_det_model = YOLO(get_config()["yoloConfig"]["detModel"])
+        # afk_seg_model = onnxruntime.InferenceSession(get_config()["yoloConfig"]["segModel"], providers=['CPUExecutionProvider'])
+        # afk_det_model = onnxruntime.InferenceSession(get_config()["yoloConfig"]["detModel"], providers=['CPUExecutionProvider'])
     except:
         log_ret("YOLO models are corrupted, trying to restore files",
                 "ERROR", shared_logger)
@@ -85,8 +83,12 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 sleep(get_config()["advanced"]["epochInterval"])
                 continue
             log_ret("Found AFK window", "EVENT", shared_logger)
+
             multiprocessing.Process(
-                target=send_notification, args=("AFK Detected", 3)).start()
+                target=send_notification, args=("AFK Detected",)).start()
+            multiprocessing.Process(
+                target=send_sound_notification, args=(3,)).start()
+
             if get_config()["executeBinary"]["runBeforeAFK"] != "":
                 try:
                     system("start "+get_config()
@@ -120,8 +122,12 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                     continue
                 log_ret(
                     f"Found AFK window in {window['title']}", "EVENT", shared_logger)
+
                 multiprocessing.Process(
-                    target=send_notification, args=("AFK Detected", 3)).start()
+                    target=send_notification, args=("AFK Detected",)).start()
+                multiprocessing.Process(
+                    target=send_sound_notification, args=(3,)).start()
+
                 if get_config()["executeBinary"]["runBeforeAFK"] != "":
                     try:
                         system("start "+get_config()
@@ -152,10 +158,10 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
 
 
 def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right_bottom_bound, suppress_idle_detection, shared_logger, type="fullscreen", hwnd=None):
-    '''results = afk_seg_model.predict(
+    results = afk_seg_model.predict(
         image, retina_masks=True, verbose=False)
-    masks = results[0].masks'''
-    masks = pred.segmentation.onnx_seg_afk(afk_seg_model, image)
+    masks = results[0].masks
+    '''masks = pred.segmentation.onnx_seg_afk(afk_seg_model, image)'''
     start = position[0]
     end = position[1]
     if start != None:
@@ -170,7 +176,7 @@ def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right
     else:
         log_ret("No end found, going for linear prediction",
                 "WARNING", shared_logger)
-    if masks == []:
+    if masks == None:
         log_ret("No masks found", "ERROR", shared_logger)
         save_image(image, "mask", "error")
         sleep(1)
@@ -242,6 +248,8 @@ def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right
 
 
 def run_segment(idled_flag, suppress_idle_detection, shared_logger, capture_windows):
+    global segment_process, idle_thread, afk_thread_process
+
     idle_thread = multiprocessing.Process(
         target=test_idle_thread, args=(idled_flag, suppress_idle_detection, shared_logger))
     afk_thread_process = multiprocessing.Process(

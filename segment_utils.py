@@ -18,12 +18,7 @@ from rdp import rdp
 from traceback import print_exc
 import constants
 from capture import wgc, bitblt
-
-# from ultralytics import YOLO
-import onnxruntime
-
-import pred.detect
-import pred.segmentation
+from ultralytics import YOLO
 
 console = Console()
 
@@ -163,7 +158,7 @@ def update_models():
         log("Updating models", "INFO")
     assets = response.json()["assets"]
     assets = [asset for asset in assets if asset["name"]
-              in ["afk-seg.onnx", "afk-det.onnx"]]
+              in ["afk-seg.pt", "afk-det.pt"]]
     for asset in assets:
         try:
             download_file(asset["browser_download_url"],
@@ -317,10 +312,10 @@ def test_environment(afk_seg_model):
     image = cv2.imread("./imgs/test.png")
     results = {}
     log("Testing YOLO", "INFO")
-    '''result = afk_seg_model.predict(image, retina_masks=True, verbose=False)
-    masks = result[0].masks'''
-    masks = pred.segmentation.onnx_seg_afk(afk_seg_model, image)
-    if masks != []:
+    result = afk_seg_model.predict(image, retina_masks=True, verbose=False)
+    masks = result[0].masks
+    # masks = pred.segmentation.onnx_seg_afk(afk_seg_model, image)
+    if masks != None:
         log(f"YOLO passed", "INFO")
         results['yolo'] = True
     else:
@@ -382,8 +377,8 @@ def yolo_detect(model, img):
 
 
 def detect_afk(img, afk_det_model):
-    things = pred.detect.onnx_detect_afk(
-        afk_det_model, img)  # yolo_detect(afk_det_model, img)
+    # things = pred.detect.onnx_detect_afk(afk_det_model, img)
+    things = yolo_detect(afk_det_model, img)
     windows_pos = None
     for thing in things[0]:
         if thing['name'] == 'Window':
@@ -397,8 +392,8 @@ def detect_afk(img, afk_det_model):
     if (get_config()["advanced"]["windowSizeRatio"][0]*(1-get_config()["advanced"]["windowSizeTolerance"]) < ratio < get_config()["advanced"]["windowSizeRatio"][0]*(1+get_config()["advanced"]["windowSizeTolerance"])) or (get_config()["advanced"]["windowSizeRatio"][1]*(1-get_config()["advanced"]["windowSizeTolerance"]) < ratio < get_config()["advanced"]["windowSizeRatio"][1]*(1+get_config()["advanced"]["windowSizeTolerance"])):
         afk_window_img = img[windows_pos[0][1]:windows_pos[1][1],
                              windows_pos[0][0]:windows_pos[1][0]]
-        # yolo_detect(afk_det_model, afk_window_img)
-        things_afk = pred.detect.onnx_detect_afk(afk_det_model, afk_window_img)
+        things_afk = yolo_detect(afk_det_model, afk_window_img)
+        # things_afk = pred.detect.onnx_detect_afk(afk_det_model, afk_window_img)
         start_pos = end_pos = None
         start_max_confidence = end_max_confidence = 0
         for thing in things_afk[0]:
@@ -427,17 +422,17 @@ def remove_duplicate_points(points):
 
 
 def segment_path(masks, start, end, left_top_bound):
-    '''for mask in masks.data:
+    for mask in masks.data:
         mask = mask.cpu().numpy()
         mask = (mask * 255).astype(np.uint8)
         skeleton = cv2.ximgproc.thinning(mask)
         contours, _ = cv2.findContours(
-            skeleton, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)'''
-    for mask in masks:
+            skeleton, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    '''for mask in masks:
         mask = (mask * 255).astype(np.uint8)
         skeleton = cv2.ximgproc.thinning(mask)
         contours, _ = cv2.findContours(
-            skeleton, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            skeleton, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)'''
     contour = contours[0]
     line = []
     for point in contour:
