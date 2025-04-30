@@ -1,4 +1,4 @@
-# florr auto afk (v1.2.0) (2025-04-26 Update)
+# florr auto afk (v1.2.1) (2025-04-30 Update)
 
 > As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
@@ -9,9 +9,13 @@
 
 ## INFO
 
-For the latest v1.2.0 , you need **WINDOWS** device to run, or you can only use v1.1.1.
+For the latest v1.2.x , you need **WINDOWS** device to run, or you can only use v1.1.1.
 
-Latest v1.2.0 version, I added background AFK Check detection support, this requires your browser supports disabling
+After trying the onnx models, I think it's the worst decision I have ever made.
+
+Now those stupid codes go under the `onnx` branch
+
+Latest v1.2.x version, I added background AFK Check detection support, this requires your browser supports disabling
 
 `CalculateNativeWinOcclusion` or try to use [Firefox](https://www.mozilla.org/en-US/firefox) browser
 

@@ -7,7 +7,7 @@
         "idleDetInterval": 3,
         "idleDetIntervalMax": 10,
         "notify": true,
-        "sound": true,
+        "sound": false,
         "soundPath": "./gui/notify.mp3"
     },
     "exposure": {
@@ -29,7 +29,7 @@
         "extendLength": 30,
         "mouseSpeed": 100,
         "skipUpdate": false,
-        "environment": true,
+        "environment": false,
         "windowSizeTolerance": 0.1,
         "windowSizeRatio": [
             0.787,
