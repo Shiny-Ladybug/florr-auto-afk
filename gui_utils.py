@@ -4,6 +4,7 @@ from PIL import Image, ImageTk, ImageDraw, ImageFont
 from tkinter import ttk
 from darkdetect import theme as detect_theme
 from psutil import Process
+from sys import argv
 from win32process import GetWindowThreadProcessId
 from random import choice
 from capture import bitblt, wgc
@@ -562,7 +563,7 @@ def get_ui_translation(key_, lang=get_config()["gui"]["language"]):
 def send_notification(message: str):
     if get_config()["runs"]["notify"]:
         icon_path = path.join(path.dirname(
-            path.abspath(__file__)), 'gui', 'icon.ico')
+            path.abspath(argv[0])), 'gui', 'icon.ico')
         toast('florr-auto-afk', message,
               icon=icon_path)
 

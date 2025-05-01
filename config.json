@@ -26,6 +26,7 @@
         "epochInterval": 8,
         "optimizeQuantization": 1,
         "rdpEpsilon": 5,
+        "saveImage": true,
         "extendLength": 30,
         "mouseSpeed": 100,
         "skipUpdate": false,

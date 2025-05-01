@@ -344,12 +344,13 @@ def test_environment(afk_seg_model):
 
 
 def save_image(image, sub_type, type):
-    if not path.exists("./images"):
-        mkdir("./images")
-    if not path.exists(f"./images/{type}"):
-        mkdir(f"./images/{type}")
-    cv2.imwrite(
-        f"./images/{type}/{sub_type}_{datetime.strftime(datetime.now(), '%Y-%m-%dT%H_%M_%SZ')}.png", image)
+    if get_config()["advanced"]["saveImage"]:
+        if not path.exists("./images"):
+            mkdir("./images")
+        if not path.exists(f"./images/{type}"):
+            mkdir(f"./images/{type}")
+        cv2.imwrite(
+            f"./images/{type}/{sub_type}_{datetime.strftime(datetime.now(), '%Y-%m-%dT%H_%M_%SZ')}.png", image)
 
 
 def yolo_detect(model, img):

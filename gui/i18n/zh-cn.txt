@@ -24,6 +24,7 @@ advanced.verbose=显示详细记录
 advanced.epochInterval=循环休眠时长
 advanced.optimizeQuantization=路径量化
 advanced.rdpEpsilon=路径最大允许偏移量
+advanced.saveImage=保存 AFK 图像
 advanced.extendLength=路径延长长度
 advanced.mouseSpeed=鼠标移动速度
 advanced.skipUpdate=跳过更新

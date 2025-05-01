@@ -1,4 +1,4 @@
-# florr auto afk (v1.2.1) (2025-04-30 Update)
+# florr auto afk (v1.2.2) (2025-05-01 Final Update)
 
 > As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
@@ -52,7 +52,6 @@ If you want to boot this without an `Internet Connection`, try to set `skipUpdat
 * 2025-04-26
 
   Add background AFK Check detection support
-
 * 2025-04-18
 
   Add GUI, exposure, idle detection support
@@ -113,7 +112,7 @@ If you can't understand and you are Chinese, set `language` to `zh-cn` for Chine
                }
                prototype.fillText.toString = () => 'function toString() { [native code] }';
            }
-   
+
        }
    ```
 

@@ -24,6 +24,7 @@ advanced.verbose=Verbose
 advanced.epochInterval=Epoch Interval
 advanced.optimizeQuantization=Quantization
 advanced.rdpEpsilon=Epsilon
+advanced.saveImage=Save AFK Image
 advanced.extendLength=Extend
 advanced.mouseSpeed=Mouse Speed
 advanced.skipUpdate=Skip Update
