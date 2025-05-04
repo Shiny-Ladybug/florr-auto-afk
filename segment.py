@@ -35,10 +35,10 @@ def test_idle_thread(idled_flag, suppress_idle_detection, shared_logger):
 
 def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windows):
     try:
+        debugger("Loading YOLO models")
         afk_seg_model = YOLO(get_config()["yoloConfig"]["segModel"])
         afk_det_model = YOLO(get_config()["yoloConfig"]["detModel"])
-        # afk_seg_model = onnxruntime.InferenceSession(get_config()["yoloConfig"]["segModel"], providers=['CPUExecutionProvider'])
-        # afk_det_model = onnxruntime.InferenceSession(get_config()["yoloConfig"]["detModel"], providers=['CPUExecutionProvider'])
+        debugger("Loaded YOLO models")
     except:
         log_ret("YOLO models are corrupted, trying to restore files",
                 "ERROR", shared_logger)
@@ -46,7 +46,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
         remove(get_config()["yoloConfig"]["detModel"])
         remove("./models/version")
         return
-
+    debugger("Loaded configs", get_config())
     test_environment(afk_seg_model)
     log_ret("恭喜你，你成功把代码跑起来了，你是这个👍", "INFO", shared_logger, save=False)
     countdown = get_config()["runs"]["runningCountDown"]
@@ -71,10 +71,12 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 continue
         if capture_windows == []:
             image = pyautogui.screenshot()
-            ori_image = image = cv2.cvtColor(
+            image = cv2.cvtColor(
                 np.array(image), cv2.COLOR_RGB2BGR)
+            ori_image = image.copy()
             position = detect_afk(image, afk_det_model)
             if position == None:
+                debugger("No AFK window found")
                 if get_config()["advanced"]["verbose"]:
                     log("No AFK window found", "EVENT", save=False)
                 if countdown != -1 and time() > eta_timestamp:
@@ -83,7 +85,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 sleep(get_config()["advanced"]["epochInterval"])
                 continue
             log_ret("Found AFK window", "EVENT", shared_logger)
-
+            debugger("Found AFK window")
             multiprocessing.Process(
                 target=send_notification, args=("AFK Detected",)).start()
             multiprocessing.Process(
@@ -95,10 +97,15 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                            ["executeBinary"]["runBeforeAFK"])
                 except:
                     log_ret("Cannot execute extra binary", "ERROR")
+
             save_image(image, "afk", "afk")
             left_top_bound = position[2][0]
             right_bottom_bound = position[2][1]
+            debugger("Bounds", left_top_bound, right_bottom_bound)
             if get_config()["exposure"]["enable"]:
+                if get_config()["exposure"]["moveInterval"] > 0:
+                    multiprocessing.Process(
+                        target=move_a_bit, args=(get_config()["exposure"]["moveInterval"],)).start()
                 image = exposure_image(
                     left_top_bound, right_bottom_bound, get_config()["exposure"]["duration"])
                 save_image(image, "exposure", "afk")
@@ -114,8 +121,9 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                     image = bitblt.bitblt_capture(window["hwnd"])
                 elif window["capture_method"] == "Windows Graphics Capture":
                     image = wgc.wgc_capture(window["hwnd"])
-                ori_image = image = cv2.cvtColor(
+                image = cv2.cvtColor(
                     np.array(image), cv2.COLOR_RGBA2RGB)
+                ori_image = image.copy()
                 position = detect_afk(image, afk_det_model)
                 if position == None:
                     results.append(False)
@@ -158,10 +166,12 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
 
 
 def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right_bottom_bound, suppress_idle_detection, shared_logger, type="fullscreen", hwnd=None):
-    results = afk_seg_model.predict(
-        image, retina_masks=True, verbose=False)
+    mask = get_masks_by_iou(image, afk_seg_model)
+    '''
+    results = afk_seg_model.predict(image, retina_masks=True, verbose=False)
     masks = results[0].masks
-    '''masks = pred.segmentation.onnx_seg_afk(afk_seg_model, image)'''
+    masks = pred.segmentation.onnx_seg_afk(afk_seg_model, image)
+    '''
     start = position[0]
     end = position[1]
     if start != None:
@@ -176,13 +186,21 @@ def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right
     else:
         log_ret("No end found, going for linear prediction",
                 "WARNING", shared_logger)
-    if masks == None:
+    if mask == None:
         log_ret("No masks found", "ERROR", shared_logger)
         save_image(image, "mask", "error")
         sleep(1)
         return
+    if get_config()["advanced"]["saveYOLOImage"]:
+        mask_image = image.copy()
+        mask_ = mask.cpu().numpy()
+        mask_ = cv2.resize(mask_, (mask_image.shape[1], mask_image.shape[0]))
+        mask_colored = np.stack(
+            [mask_ * 255, mask_ * 0, mask_ * 0], axis=-1).astype(np.uint8)
+        overlay = cv2.addWeighted(mask_image, 0.7, mask_colored, 0.3, 0)
+        save_image(overlay, "seg", "yolo")
     log_ret("Using yolo to bypass AFK", "EVENT", shared_logger)
-    line_ = segment_path(masks, start, end, left_top_bound)
+    line_ = segment_path(mask, start, end, left_top_bound)
     line = [line_[i]
             for i in range(0, len(line_), get_config()["advanced"]["optimizeQuantization"])]
     line = rdp(line, get_config()["advanced"]["rdpEpsilon"])
@@ -209,6 +227,7 @@ def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right
         obs("start")
         sleep(1)
     if type == "fullscreen":
+        debugger("Executing AFK with fullscreen")
         if get_config()["advanced"]["moveMouse"]:
             with suppress_idle_detection.get_lock():
                 suppress_idle_detection.value = True
@@ -220,10 +239,12 @@ def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right
         if get_config()["runs"]["moveAfterAFK"]:
             move_a_bit()
     else:
+        debugger("Executing AFK with spec window", hwnd)
         ori_pos = pyautogui.position()
         now_windows: list[gw.Win32Window] = gw.getWindowsWithTitle("")
         for w in now_windows:
             if w._hWnd == hwnd:
+                debugger("Activating window", hwnd, w.title)
                 w.activate()
                 break
         if get_config()["advanced"]["moveMouse"]:
@@ -245,6 +266,7 @@ def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right
     if get_config()["advanced"]["useOBS"]:
         sleep(1)
         obs("stop")
+    debugger("`execute_afk` finished")
 
 
 def run_segment(idled_flag, suppress_idle_detection, shared_logger, capture_windows):
@@ -266,6 +288,8 @@ def run_segment(idled_flag, suppress_idle_detection, shared_logger, capture_wind
 
 def start_segment_process(segment_running, shared_logger, capture_windows):
     global segment_process, idled_flag, suppress_idle_detection, idle_thread, afk_thread_process
+    debugger("Starting segment process")
+    check_config(shared_logger)
     segment_running.value = True
     if segment_process is not None and segment_process.is_alive():
         log_ret("Segment process is already running.",
@@ -278,9 +302,7 @@ def start_segment_process(segment_running, shared_logger, capture_windows):
     if not get_config()["runs"]["autoTakeOverWhenIdle"]:
         with idled_flag.get_lock():
             idled_flag.value = True
-    else:
-        log_ret("Idle Detection is currently enabled, set `autoTakeOverWhenIdle` to `false` if you just want to test the AFK Bypass ability",
-                "WARNING", shared_logger, save=False)
+
     segment_process = multiprocessing.Process(
         target=run_segment, args=(idled_flag, suppress_idle_detection, shared_logger, capture_windows))
     segment_process.start()
@@ -289,6 +311,7 @@ def start_segment_process(segment_running, shared_logger, capture_windows):
 
 def toggle_segment_process(capture_windows):
     global segment_process, segment_running, shared_logger, idle_thread, afk_thread_process
+    debugger("Toggling segment process")
     if segment_running.value:
         segment_running.value = False
 
@@ -318,6 +341,7 @@ def toggle_segment_process(capture_windows):
 
 def update_page(new_page_stat):
     global page_stat, console_text, capture_windows
+    debugger(f"Updating page to {new_page_stat}")
     theme = detect_theme() if get_config(
     )["gui"]["theme"] == "auto" else ("Dark" if get_config()["gui"]["theme"].lower() == "dark" else "Light")
     page_stat = new_page_stat
@@ -469,6 +493,7 @@ def update_page(new_page_stat):
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()
+    debugger("Main thread started")
     page_stat = "launch"
     segment_process = idle_thread = afk_thread_process = None
     segment_running = multiprocessing.Value(ctypes.c_bool, False)

@@ -2,8 +2,8 @@ import requests
 from tqdm import tqdm
 from matplotlib import use
 import cv2
-import base64
 import pyautogui
+from psutil import Process, virtual_memory, cpu_freq
 from json import load, dump
 from sys import _getframe, getwindowsversion
 from os import path, mkdir, system, remove, listdir
@@ -25,9 +25,26 @@ console = Console()
 use('Agg')
 
 
-def get_config():
+def get_config() -> dict:
     with open("./config.json", "r", encoding="utf-8") as f:
         return load(f)
+
+
+def debugger(msg, *args) -> None:
+    if get_config()["advanced"]["debug"]:
+        frame = _getframe().f_back
+        now = datetime.now()
+        time = now.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        arg_names = {id(value): name for name, value in frame.f_locals.items()}
+        mappings = {}
+        for arg in args:
+            mappings[arg_names.get(id(arg), "CONSTANT")] = str(arg)
+        if mappings == {}:
+            message = f"[{time}] {msg}"
+        else:
+            message = f"[{time}] {msg} {mappings}"
+        with open('debug.log', 'a', encoding='utf-8') as f:
+            f.write(f'{message}\n')
 
 
 def log_ret(event: str, type: str, logger_=[], show: bool = True, save: bool = True):
@@ -314,7 +331,6 @@ def test_environment(afk_seg_model):
     log("Testing YOLO", "INFO")
     result = afk_seg_model.predict(image, retina_masks=True, verbose=False)
     masks = result[0].masks
-    # masks = pred.segmentation.onnx_seg_afk(afk_seg_model, image)
     if masks != None:
         log(f"YOLO passed", "INFO")
         results['yolo'] = True
@@ -378,7 +394,6 @@ def yolo_detect(model, img):
 
 
 def detect_afk(img, afk_det_model):
-    # things = pred.detect.onnx_detect_afk(afk_det_model, img)
     things = yolo_detect(afk_det_model, img)
     windows_pos = None
     for thing in things[0]:
@@ -394,7 +409,13 @@ def detect_afk(img, afk_det_model):
         afk_window_img = img[windows_pos[0][1]:windows_pos[1][1],
                              windows_pos[0][0]:windows_pos[1][0]]
         things_afk = yolo_detect(afk_det_model, afk_window_img)
-        # things_afk = pred.detect.onnx_detect_afk(afk_det_model, afk_window_img)
+        if get_config()["advanced"]["saveYOLOImage"]:
+            for obj in things_afk[0]:
+                cv2.rectangle(afk_window_img, (obj['x_1'], obj['y_1']),
+                              (obj['x_2'], obj['y_2']), color=(0, 255, 0), thickness=2)
+                cv2.putText(afk_window_img, obj['name'], (obj['x_1'], obj['y_1'] - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                save_image(afk_window_img, "det", "yolo")
         start_pos = end_pos = None
         start_max_confidence = end_max_confidence = 0
         for thing in things_afk[0]:
@@ -422,18 +443,12 @@ def remove_duplicate_points(points):
     return new_points
 
 
-def segment_path(masks, start, end, left_top_bound):
-    for mask in masks.data:
-        mask = mask.cpu().numpy()
-        mask = (mask * 255).astype(np.uint8)
-        skeleton = cv2.ximgproc.thinning(mask)
-        contours, _ = cv2.findContours(
-            skeleton, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    '''for mask in masks:
-        mask = (mask * 255).astype(np.uint8)
-        skeleton = cv2.ximgproc.thinning(mask)
-        contours, _ = cv2.findContours(
-            skeleton, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)'''
+def segment_path(mask, start, end, left_top_bound):
+    mask = mask.cpu().numpy()
+    mask = (mask * 255).astype(np.uint8)
+    skeleton = cv2.ximgproc.thinning(mask)
+    contours, _ = cv2.findContours(
+        skeleton, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contour = contours[0]
     line = []
     for point in contour:
@@ -463,6 +478,8 @@ def move_a_bit(interval=0.1):
 
 
 def exposure_image(left_top_bound, right_bottom_bound, duration, hwnd=None, capture_method=None):
+    debugger("Exposure image", left_top_bound,
+             right_bottom_bound, duration, hwnd, capture_method)
     start_time = time()
     frames = []
     region = (left_top_bound[0], left_top_bound[1],
@@ -487,3 +504,49 @@ def exposure_image(left_top_bound, right_bottom_bound, duration, hwnd=None, capt
 def calculate_offset(path, hwnd):
     rect = wgc.get_fixed_window_rect(hwnd)
     return [(p[0] + rect[0], p[1] + rect[1]) for p in path]
+
+
+def get_masks_by_iou(image, afk_seg_model: YOLO, lower_iou=0.3, upper_iou=0.7, stepping=0.1):
+    debugger("Getting masks by iou", lower_iou, upper_iou, stepping)
+    for iou in np.arange(upper_iou, lower_iou, -stepping):
+        results = afk_seg_model.predict(
+            image, retina_masks=True, verbose=False, iou=iou)
+        if results[0].masks == None:
+            return None
+        debugger("Found masks", iou, len(results[0].masks.data))
+        if len(results[0].masks.data) == 1:
+            break
+    if len(results[0].masks.data) != 1:
+        results.sort(key=lambda x: x.boxes.conf[0], reverse=True)
+    mask = results[0].masks.data[0]
+    return mask
+
+
+def check_config(shared_logger):
+    config = get_config()
+    if config["runs"]["autoTakeOverWhenIdle"]:
+        log_ret("Idle Detection is currently enabled, set `autoTakeOverWhenIdle` to `false` if you just want to test the AFK Bypass ability",
+                "WARNING", shared_logger, save=False)
+    if config["runs"]["idleDetInterval"] > config["runs"]["idleDetIntervalMax"]:
+        log_ret("Idle Detection Interval is greater than the maximum value, set `idleDetInterval` to a value less than `idleDetIntervalMax`",
+                "WARNING", shared_logger, save=False)
+    if config["exposure"]["duration"] > 10:
+        log_ret("Too long exposure duration",
+                "WARNING", shared_logger, save=False)
+    if config["exposure"]["moveInterval"]*4 > config["exposure"]["duration"]:
+        log_ret("`moveInterval` is grater than exposure `duration`, it may cause unnecessary move lead to death",
+                "WARNING", shared_logger, save=False)
+    if config["advanced"]["showLogger"]:
+        log_ret("Program will show path after each detection, program will hung until you close the window",
+                "WARNING", shared_logger, save=False)
+    if pyautogui.size().height < 1080:
+        log_ret("You have a low screen resolution, it may cause detection failure",
+                "WARNING", shared_logger, save=False)
+    memory_gb = virtual_memory().total / (1024 ** 3)
+    cpu_freq_ghz = cpu_freq().current / 1000
+    if memory_gb < 8:
+        log_ret(f"Running on {memory_gb:.2f}GB memory, OutOfMemory Warning",
+                "WARNING", shared_logger, save=False)
+    if cpu_freq_ghz < 2.5:
+        log_ret(f"Running on {cpu_freq_ghz:.2f}GHz CPU, slow exection Warning",
+                "WARNING", shared_logger, save=False)

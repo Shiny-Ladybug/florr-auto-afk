@@ -15,6 +15,7 @@ tqdm
 opencv-contrib-python
 sv_ttk
 tk
+tkinter-tooltip
 darkdetect
 pywinstyles
 Pillow==9.3.0

@@ -1,11 +1,10 @@
-# florr auto afk (v1.2.2) (2025-05-01 Final Update)
+# florr auto afk (v1.2.3) (2025-05-04 *Can't Tell if Final* Update)
 
 > As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
 > [!CAUTION]
-> On 2025/02/07, m28 nerfed egg and increase the difficulty of AFK Checks, however, keep using this script may result in a BAN
->
-> M28 also can send player messages and AFK Checks, if you can solve the check but cannot respond to his messages, you may result in a BAN
+> 
+>M28 can send player messages and AFK Checks, if you can solve the check but cannot respond to his messages, you may result in a BAN
 
 ## INFO
 
@@ -75,11 +74,11 @@ If you want to run the script on MacOS or Linux, go to run source codes.
 
 You can build your own GPU version here by installing `torch-gpu`.
 
-## Config
+## Config	
 
 See the settings page in GUI menu.
 
-If you can't understand and you are Chinese, set `language` to `zh-cn` for Chinese settings.
+If you can't understand what's this and you are Chinese by accident, set `language` to `zh-cn` for Chinese settings.
 
 ## Gallery
 
@@ -112,7 +111,7 @@ If you can't understand and you are Chinese, set `language` to `zh-cn` for Chine
                }
                prototype.fillText.toString = () => 'function toString() { [native code] }';
            }
-
+   
        }
    ```
 
@@ -139,13 +138,11 @@ If you can't understand and you are Chinese, set `language` to `zh-cn` for Chine
 
 **I DO NOT RECOMMEND TRUSTING THIS SCRIPT**
 
-It can really passing some easy AFK checks.
+It can passing some AFK checks.
 
 As the longer you stay in the same server, the checks get harder.
 
 The script cannot solve the ***WORM-LIKE*** disgusting checks for the time being.
-
-I'll improve the code soon.
 
 ## ?
 

@@ -7,11 +7,12 @@
         "idleDetInterval": 3,
         "idleDetIntervalMax": 10,
         "notify": true,
-        "sound": false,
+        "sound": true,
         "soundPath": "./gui/notify.mp3"
     },
     "exposure": {
         "enable": true,
+        "moveInterval": 0.25,
         "duration": 3
     },
     "gui": {
@@ -27,10 +28,12 @@
         "optimizeQuantization": 1,
         "rdpEpsilon": 5,
         "saveImage": true,
+        "saveYOLOImage": true,
         "extendLength": 30,
         "mouseSpeed": 100,
         "skipUpdate": false,
         "environment": false,
+        "debug": false,
         "windowSizeTolerance": 0.1,
         "windowSizeRatio": [
             0.787,

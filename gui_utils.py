@@ -1,9 +1,9 @@
+from tktooltip import ToolTip
 import pygetwindow as gw
 import pywinstyles
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 from tkinter import ttk
 from darkdetect import theme as detect_theme
-from psutil import Process
 from sys import argv
 from win32process import GetWindowThreadProcessId
 from random import choice
@@ -88,15 +88,18 @@ def create_settings_widgets(parent, config_data, parent_key=""):
     for key, value in config_data.items():
         full_key = f"{parent_key}.{key}" if parent_key else key
         display_key = translate(full_key, translations)
+        tips = get_settings_tips(full_key)
         if isinstance(value, dict):
             label = ttk.Label(
                 parent, text=f"> {display_key}:", font=("Microsoft Yahei", 14, "bold"))
             label.pack(anchor="w", pady=5)
+            ToolTip(label, msg=tips, delay=0.2)
             create_settings_widgets(parent, value, full_key)
         elif isinstance(value, list):
             label = ttk.Label(
                 parent, text=f"{display_key}:", font=("Microsoft Yahei", 10))
             label.pack(anchor="w", pady=5)
+            ToolTip(label, msg=tips, delay=0.2)
             entry = ttk.Entry(parent)
             entry.insert(0, json.dumps(value))
             entry.pack(fill="x", pady=2)
@@ -121,6 +124,7 @@ def create_settings_widgets(parent, config_data, parent_key=""):
             checkbutton = ttk.Checkbutton(
                 parent, text=display_key, variable=var)
             checkbutton.pack(anchor="w", pady=5)
+            ToolTip(checkbutton, msg=tips, delay=0.2)
             checkbutton_font = ("Microsoft Yahei", 10)
             checkbutton.configure(style="Custom.TCheckbutton")
             style = ttk.Style()
@@ -143,6 +147,7 @@ def create_settings_widgets(parent, config_data, parent_key=""):
             label = ttk.Label(
                 parent, text=f"{display_key}:", font=("Microsoft Yahei", 10))
             label.pack(anchor="w", pady=5)
+            ToolTip(label, msg=tips, delay=0.2)
             entry = ttk.Entry(parent)
             entry.insert(0, str(value))
             entry.pack(fill="x", pady=2)
@@ -183,6 +188,7 @@ def create_settings_widgets(parent, config_data, parent_key=""):
             label = ttk.Label(
                 parent, text=f"{display_key}:", font=("Microsoft Yahei", 10))
             label.pack(anchor="w", pady=5)
+            ToolTip(label, msg=tips, delay=0.2)
             entry = ttk.Entry(parent)
             entry.insert(0, str(value))
             entry.pack(fill="x", pady=2)
@@ -553,6 +559,16 @@ def update_capture_menu(main_content, window):
 def get_ui_translation(key_, lang=get_config()["gui"]["language"]):
     translations = {}
     with open("./gui/i18n/ui_"+lang+".txt", "r", encoding="utf-8") as f:
+        for line in f:
+            if "=" in line:
+                key, value = line.strip().split("=", 1)
+                translations[key] = value
+    return translations.get(key_, key_)
+
+
+def get_settings_tips(key_, lang=get_config()["gui"]["language"]):
+    translations = {}
+    with open("./gui/i18n/tip_"+lang+".txt", "r", encoding="utf-8") as f:
         for line in f:
             if "=" in line:
                 key, value = line.strip().split("=", 1)
