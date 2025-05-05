@@ -1,4 +1,4 @@
-# florr auto afk (v1.2.3) (2025-05-04 *Can't Tell if Final* Update)
+# florr auto afk (v1.2.4) (2025-05-05 SSL export Update)
 
 > As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
@@ -47,6 +47,10 @@ If you want to write more automation codes, go check models in [assets](https://
 If you want to boot this without an `Internet Connection`, try to set `skipUpdate` in `config.json` to `true`.
 
 ## Changelog
+
+* 2025-05-04
+
+  If you turn on SaveTrainableDataset in Settings > Advanced, program will save the dataset to `./train` folder, I'm welcomed to receive those datasets to improve the AFK model
 
 * 2025-04-26
 
