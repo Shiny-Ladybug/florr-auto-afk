@@ -416,6 +416,14 @@ def open_capture_window(root, main_content):
             f"[{Process(GetWindowThreadProcessId(w._hWnd)[1]).name()}]: {w.title}" for w in available_windows]
         w = available_windows[names.index(selected_title)]
         hwnd = w._hWnd
+        if str(w.title).strip().endswith("Microsoft​ Edge Beta"):
+            notice_label.config(
+                text="Note: canvas wont auto refresh with Release Microsoft Edge, try to use Edge Beta/Dev/Canary")
+        elif str(w.title).strip().endswith("Google Chrome"):
+            notice_label.config(
+                text="Note: make sure you disable `CalculateNativeWinOcclusion`")
+        else:
+            notice_label.config(text="")
         try:
             if capture_method.get() == "BitBlt":
                 frame = bitblt.bitblt_capture(hwnd)
@@ -432,6 +440,7 @@ def open_capture_window(root, main_content):
             preview_label.image = img_tk
         except Exception as e:
             print(f"Error capturing window: {e}")
+
         create_window.after(1000, update_preview)
     create_window = tk.Toplevel(root)
     create_window.title(get_ui_translation("capture_winname"))
@@ -441,9 +450,11 @@ def open_capture_window(root, main_content):
     preview_label = ttk.Label(
         create_window, text="Preview will appear here", anchor="center")
     preview_label.pack(pady=10, padx=10, fill="both", expand=True)
-
     bottom_frame = ttk.Frame(create_window)
     bottom_frame.pack(pady=10, padx=20, fill="x")
+    notice_label = ttk.Label(
+        bottom_frame, text="", font=("Microsoft Yahei", 9), foreground="#ef5350")
+    notice_label.pack(padx=10, pady=10)
 
     available_windows_label = ttk.Label(
         bottom_frame, text=get_ui_translation("capture_windows"), font=("Microsoft Yahei", 12))

@@ -396,6 +396,7 @@ def update_page(new_page_stat):
         console_text.tag_config("warning", foreground="#808000")
         console_text.tag_config("critical", foreground="#BA3537")
         console_text.tag_config("event", foreground="#ffab70")
+        console_text.tag_config("notice", foreground="#0969da")
         console_text.tag_config("default", foreground=console_fg)
 
         def refresh_logger():

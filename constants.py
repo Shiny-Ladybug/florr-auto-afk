@@ -1,9 +1,10 @@
 ASSET_REPO = "Shiny-Ladybug/assets"
 PROJECT_REPO = "Shiny-Ladybug/florr-auto-afk"
-VERSION_INFO = "1.2.3"
+VERSION_INFO = "1.2.4"
 VERSION_TYPE = "Not Final Release"
-RELEASE_DATE = "2025-05-01 14:21:01"
+RELEASE_DATE = "2025-05-05 13:59:55"
 CHANGELOG = {
+    "1.2.4": ["export afk data to `./train` for semi-supervised training"],
     "1.2.3": ["fix IoU issue",
               "add moving exposure",
               "add tips",

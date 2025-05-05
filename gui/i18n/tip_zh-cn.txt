@@ -18,6 +18,7 @@ exposure.moveInterval=曝光时通过左右移动来消除背景干扰，将此�
 exposure.duration=曝光时长
 gui.language=仅支持`zh-cn`和`en-us`
 gui.theme=仅支持`dark`、`light`和`auto`
+advanced.saveTrainData=保存可训练数据集到`./train`，你可将这些数据上传给开发者以改善模型
 advanced.showLogger=AFK检测到后显示cv2检测窗口，程序**不会**继续运行直到你关闭窗口
 advanced.moveMouse=移动鼠标
 advanced.useOBS=设置OBS开始热键为`Ctrl+Alt+Shift+O`，停止热键为`Ctrl+Alt+Shift+P`，然后你可以使用OBS录制屏幕，程序将在AFK检测到/绕过时自动开始/停止录制

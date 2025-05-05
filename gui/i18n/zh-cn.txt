@@ -18,6 +18,7 @@ exposure.moveInterval=移动时长
 exposure.duration=曝光时长
 gui.language=语言
 gui.theme=主题
+advanced.saveTrainData=保存可训练数据集
 advanced.showLogger=显示 AFK 路径
 advanced.moveMouse=移动鼠标
 advanced.useOBS=使用 OBS 录屏

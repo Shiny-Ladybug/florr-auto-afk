@@ -19,6 +19,7 @@ from traceback import print_exc
 import constants
 from capture import wgc, bitblt
 from ultralytics import YOLO
+from tarfile import open as tar_open
 
 console = Console()
 
@@ -75,6 +76,9 @@ def log_ret(event: str, type: str, logger_=[], show: bool = True, save: bool = T
     elif type.lower() == "event":
         style = "#ffab70"
         tag = "event"
+    elif type.lower() == "notice":
+        style = "#0969da"
+        tag = "notice"
     else:
         style = ""
         tag = "default"
@@ -519,7 +523,54 @@ def get_masks_by_iou(image, afk_seg_model: YOLO, lower_iou=0.3, upper_iou=0.7, s
     if len(results[0].masks.data) != 1:
         results.sort(key=lambda x: x.boxes.conf[0], reverse=True)
     mask = results[0].masks.data[0]
+    export_result_to_dataset(results, image)
     return mask
+
+
+def export_result_to_dataset(results, image, epsilon=1):
+    if results[0].masks is None:
+        return
+    now = int(time())
+    image_height, image_width, _ = image.shape
+    debugger("Exporting result to dataset", now, image_height, image_width)
+    labelme_data = {
+        "version": "5.6.0",
+        "flags": {},
+        "shapes": [],
+        "imagePath": f"../images/{now}.png",
+        "imageData": None,
+        "imageHeight": image_height,
+        "imageWidth": image_width
+    }
+    if results and results[0].masks:
+        for i in range(len(results[0].masks)):
+            original_polygon_points = results[0].masks.xy[i]
+            simplified_polygon_np = rdp(
+                original_polygon_points, epsilon=epsilon)
+            simplified_polygon_points = simplified_polygon_np.tolist()
+            shape_entry = {
+                "label": "path",
+                "points": simplified_polygon_points,
+                "group_id": None,
+                "description": "",
+                "shape_type": "polygon",
+                "flags": {},
+                "mask": None
+            }
+            labelme_data["shapes"].append(shape_entry)
+    if not path.exists("./train"):
+        mkdir("./train")
+    if not path.exists("./train/images"):
+        mkdir("./train/images")
+    if not path.exists("./train/split"):
+        mkdir("./train/split")
+
+    cv2.imwrite(f"./train/images/{now}.png", image)
+    with open(f"./train/split/{now}.json", "w") as f:
+        dump(labelme_data, f, indent=4)
+    with tar_open("./train/train.tar.gz", "w:gz") as tar:
+        tar.add("./train/images", arcname="images")
+        tar.add("./train/split", arcname="split")
 
 
 def check_config(shared_logger):
@@ -539,12 +590,15 @@ def check_config(shared_logger):
     if config["advanced"]["showLogger"]:
         log_ret("Program will show path after each detection, program will hung until you close the window",
                 "WARNING", shared_logger, save=False)
+    if not config["advanced"]["saveTrainData"]:
+        log_ret("If you want to improve the AFK model and contribute to the project, suggest turning on `Save Trainable Dataset` in Settings > Advanced",
+                "Notice", shared_logger, save=False)
     if pyautogui.size().height < 1080:
         log_ret("You have a low screen resolution, it may cause detection failure",
                 "WARNING", shared_logger, save=False)
     memory_gb = virtual_memory().total / (1024 ** 3)
     cpu_freq_ghz = cpu_freq().current / 1000
-    if memory_gb < 8:
+    if memory_gb < 6:
         log_ret(f"Running on {memory_gb:.2f}GB memory, OutOfMemory Warning",
                 "WARNING", shared_logger, save=False)
     if cpu_freq_ghz < 2.5:
