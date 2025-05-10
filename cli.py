@@ -50,7 +50,7 @@ def afk_thread(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model
         image = pyautogui.screenshot()
         ori_image = image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
         position = detect_afk(image, afk_det_model)
-        if position == None:
+        if position is None:
             if get_config()["advanced"]["verbose"]:
                 log("No AFK window found", "EVENT", save=False)
             if countdown != -1 and time() > eta_timestamp:
@@ -78,18 +78,18 @@ def afk_thread(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model
         masks = results[0].masks
         start = position[0]
         end = position[1]
-        if start != None:
+        if start is not None:
             start = (round(position[0][0]), round(position[0][1]))
             start = (start[0] + left_top_bound[0],
                      start[1] + left_top_bound[1])
         else:
             log("No start found", "WARNING")
-        if end != None:
+        if end is not None:
             end = (round(position[1][0]), round(position[1][1]))
             end = (end[0] + left_top_bound[0], end[1] + left_top_bound[1])
         else:
             log("No end found, going for linear prediction", "WARNING")
-        if masks == None:
+        if masks is None:
             log("No masks found", "ERROR")
             save_image(image, "mask", "error")
             sleep(1)
@@ -105,9 +105,9 @@ def afk_thread(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model
             pass
         final_np = np.array(line, np.int32)
         final_np = final_np.reshape((-1, 1, 2))
-        if start != None:
+        if start is not None:
             cv2.circle(ori_image, start, 5, (0, 255, 0), -1)
-        if end != None:
+        if end is not None:
             cv2.circle(ori_image, end, 5, (0, 0, 255), -1)
         cv2.polylines(ori_image, [final_np], False, (0, 255, 0), 2)
         cv2.rectangle(ori_image, left_top_bound,
@@ -142,7 +142,7 @@ def afk_thread(idled_flag, suppress_idle_detection, afk_det_model, afk_seg_model
         sleep(1)
         position = detect_afk(cv2.cvtColor(
             np.array(pyautogui.screenshot()), cv2.COLOR_RGB2BGR), afk_det_model)
-        if position != None:
+        if position is not None:
             log("Cannot bypass AFK", "ERROR")
         else:
             log("Bypassed AFK", "EVENT")
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     initiate()
     check_update()
     while True:
-        if get_config()["advanced"]["skipUpdate"] == False:
+        if not get_config()["advanced"]["skipUpdate"]:
             try:
                 update_models()
             except:

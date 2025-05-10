@@ -2,6 +2,7 @@ page_launch=Launch
 page_console=Console
 page_hooks=Hooks
 page_history=History
+page_test=Test
 page_settings=Settings
 launch_announcements=Announcements
 launch_run=Run

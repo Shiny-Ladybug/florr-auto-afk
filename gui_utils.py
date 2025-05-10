@@ -1,5 +1,4 @@
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from tktooltip import ToolTip
 import pygetwindow as gw
 import pywinstyles
@@ -14,6 +13,7 @@ from segment_utils import *
 from win11toast import toast
 from playsound import playsound
 import sv_ttk
+import imghdr
 import json
 import ctypes
 import torch
@@ -89,6 +89,7 @@ def create_settings_widgets(parent, config_data, parent_key=""):
     global theme, translations, config
     translations = load_translations(get_config()["gui"]["language"])
     for key, value in config_data.items():
+        print(key, value, type(value))
         full_key = f"{parent_key}.{key}" if parent_key else key
         display_key = translate(full_key, translations)
         tips = get_settings_tips(full_key)
@@ -443,7 +444,7 @@ def generate_announcement(skip_update=False):
         upd = check_update()
     else:
         upd = None
-    if upd == None:
+    if upd is None:
         update_msg = "Failed to check for updates."
     else:
         if upd[0] and not skip_update:
@@ -465,14 +466,14 @@ def generate_announcement(skip_update=False):
             latest_v = get_changelog()
             if latest_v:
                 latest = latest_v[list(latest_v.items())[0][0]]
-                changelog_msg += f"Version {list(latest_v.items())[0][0]}:\n"
+                changelog_msg += f"Version {list(latest_v.items())[0][0]}:"
                 for change in latest:
-                    changelog_msg += f"- {change}\n"
+                    changelog_msg += f"\n- {change}"
             else:
-                changelog_msg += "No changelog available.\n"
+                changelog_msg += "No changelog available."
         else:
-            changelog_msg += "No changelog available.\n"
-    return "\n\n".join([update_msg, changelog_msg])
+            changelog_msg += "No changelog available."
+    return "\n".join([update_msg, changelog_msg])
 
 
 def get_changelog():

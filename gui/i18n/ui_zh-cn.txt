@@ -2,6 +2,7 @@ page_launch=运行
 page_console=终端
 page_hooks=捕获
 page_history=历史
+page_test=测试
 page_settings=设置
 launch_announcements=公告
 launch_run=启动

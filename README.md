@@ -138,6 +138,28 @@ If you can't understand what's this and you are Chinese by accident, set `langua
    By using the Grey Style, we can define a specific `lower_bounds` and `upper_bounds` to get the path.
 4. Loop
 
+## FAQ
+
+Q: What is the accuracy of this model?
+
+A: According to statistics, after properly installing the newest version of Auto AFK, the accuracy should be greater than **90%**.
+
+Q: Why the accuracy tested on my computer is so low?
+
+A: Most likely skill issue. Make sure you are NOT using normal Edge (mentioned above). Also make sure you have disabled `CalculateNativeWinOcclusion` if you're on Google Chrome or other versions of Edge.
+
+Q: Why is my computer so hot when running the code?
+
+A: Make sure you close all the unnecessary programs when running and maybe turn on "Best Battery Life".
+
+Q: But my computer goes to sleep after a very short period of time. How to fix that?
+
+A: Go to Settings in your computer and change the sleep after inactive time of course.
+
+Q: I found some bugs/I have some ideas for improving this application. What should I do?
+
+A: Suggest turning on `Save Trainable Dataset` in Settings > Advanced. Then contact Shiny Ladybug via QQ.
+
 ## Issues
 
 **I DO NOT RECOMMEND TRUSTING THIS SCRIPT**

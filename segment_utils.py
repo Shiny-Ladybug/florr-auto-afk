@@ -223,7 +223,7 @@ def check_update():
 
 
 def reorder_points_by_distance(start, points):
-    if start != None:
+    if start is not None:
         sorted_points = [start]
     else:
         sorted_points = [points[0]]
@@ -246,7 +246,7 @@ def reorder_points_by_distance(start, points):
 
 def truncate_points(start, points, end):
     sorted_points = []
-    if end != None:
+    if end is not None:
         sorted_points = [end]
     else:
         sorted_points = [points[-1]]
@@ -327,7 +327,7 @@ def test_environment(afk_seg_model):
     log("Testing YOLO", "INFO")
     result = afk_seg_model.predict(image, retina_masks=True, verbose=False)
     masks = result[0].masks
-    if masks != None:
+    if masks is not None:
         log(f"YOLO passed", "INFO")
         results['yolo'] = True
     else:
@@ -365,6 +365,16 @@ def save_image(image, sub_type, type):
             f"./images/{type}/{sub_type}_{datetime.strftime(datetime.now(), '%Y-%m-%dT%H_%M_%SZ')}.png", image)
 
 
+def save_test_image(image, sub_type, type):
+    if get_config()["advanced"]["saveImage"]:
+        if not path.exists("./test"):
+            mkdir("./test")
+        if not path.exists(f"./test/{type}"):
+            mkdir(f"./test/{type}")
+        cv2.imwrite(
+            f"./test/{type}/{sub_type}_{datetime.strftime(datetime.now(), '%Y-%m-%dT%H_%M_%SZ')}.png", image)
+
+
 def yolo_detect(model, img):
     result = model.predict(img, verbose=False)[0]
     names = result.names
@@ -396,7 +406,7 @@ def detect_afk(img, afk_det_model):
         if thing['name'] == 'Window':
             windows_pos = ((thing['x_1'], thing['y_1']),
                            (thing['x_2'], thing['y_2']))
-    if windows_pos == None:
+    if windows_pos is None:
         return None
     window_width = windows_pos[1][0] - windows_pos[0][0]
     window_height = windows_pos[1][1] - windows_pos[0][1]
@@ -448,7 +458,7 @@ def segment_path(mask, start, end, left_top_bound):
         line.append((point[0][0] + left_top_bound[0],
                     point[0][1] + left_top_bound[1]))
     line = remove_duplicate_points(line)
-    if start != None and end != None:
+    if start is not None and end is not None:
         line = truncate_points(start, line, end)
     else:
         line = reorder_points_by_distance(start, line)
@@ -504,7 +514,7 @@ def get_masks_by_iou(image, afk_seg_model: YOLO, lower_iou=0.3, upper_iou=0.7, s
     for iou in np.arange(upper_iou, lower_iou, -stepping):
         results = afk_seg_model.predict(
             image, retina_masks=True, verbose=False, iou=iou)
-        if results[0].masks == None:
+        if results[0].masks is None:
             return None
         debugger("Found masks", iou, len(results[0].masks.data))
         if len(results[0].masks.data) == 1:
