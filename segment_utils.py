@@ -222,14 +222,6 @@ def check_update():
     return compare_versions(local_version, remote_version), remote_version
 
 
-def color(count, index):
-    percent = index / count
-    r = int(255 * (1 - percent))
-    g = int(255 * percent)
-    b = 0
-    return (r, g, b)
-
-
 def reorder_points_by_distance(start, points):
     if start != None:
         sorted_points = [start]
@@ -422,21 +414,18 @@ def detect_afk(img, afk_det_model):
                 save_image(afk_window_img, "det", "yolo")
         start_pos = end_pos = None
         start_max_confidence = end_max_confidence = 0
+        start_size = 0
         for thing in things_afk[0]:
             if thing['name'] == 'Start' and thing['confidence'] > start_max_confidence:
                 start_pos = (thing['x_avg'], thing['y_avg'])
                 start_max_confidence = thing['confidence']
+                start_size = (abs(thing['x_2'] - thing['x_1']) +
+                              abs(thing['y_2'] - thing['y_1'])) / 2
             if thing['name'] == 'End' and thing['confidence'] > end_max_confidence:
                 end_pos = (thing['x_avg'], thing['y_avg'])
                 end_max_confidence = thing['confidence']
-        return start_pos, end_pos, windows_pos
+        return start_pos, end_pos, windows_pos, start_size
     return None
-
-
-def calculate_degree(p1, p2):
-    x1, y1 = p1
-    x2, y2 = p2
-    return np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
 
 
 def remove_duplicate_points(points):
@@ -523,7 +512,8 @@ def get_masks_by_iou(image, afk_seg_model: YOLO, lower_iou=0.3, upper_iou=0.7, s
     if len(results[0].masks.data) != 1:
         results.sort(key=lambda x: x.boxes.conf[0], reverse=True)
     mask = results[0].masks.data[0]
-    export_result_to_dataset(results, image)
+    if get_config()["advanced"]["saveTrainData"]:
+        export_result_to_dataset(results, image)
     return mask
 
 

@@ -1,0 +1,80 @@
+[
+    {
+        "name": "anthell",
+        "path": "./gui/backgrounds/anthell.png",
+        "weight": 1,
+        "type": "copy"
+    },
+    {
+        "name": "centralia",
+        "path": "./gui/backgrounds/centralia.png",
+        "weight": 1,
+        "type": "copy"
+    },
+    {
+        "name": "desert",
+        "path": "./gui/backgrounds/desert.png",
+        "weight": 1,
+        "type": "copy"
+    },
+    {
+        "name": "dirt",
+        "path": "./gui/backgrounds/dirt.png",
+        "weight": 1,
+        "type": "copy"
+    },
+    {
+        "name": "grass",
+        "path": "./gui/backgrounds/grass.png",
+        "weight": 1,
+        "type": "copy"
+    },
+    {
+        "name": "hel",
+        "path": "./gui/backgrounds/hel.png",
+        "weight": 1,
+        "type": "copy"
+    },
+    {
+        "name": "jungle",
+        "path": "./gui/backgrounds/jungle.png",
+        "weight": 1,
+        "type": "copy"
+    },
+    {
+        "name": "my_wallpaper_xd",
+        "path": "./gui/backgrounds/my_wallpaper_xd.png",
+        "weight": 0.05,
+        "type": "tile"
+    },
+    {
+        "name": "ocean",
+        "path": "./gui/backgrounds/ocean.png",
+        "weight": 1,
+        "type": "copy"
+    },
+    {
+        "name": "pvp",
+        "path": "./gui/backgrounds/pvp.png",
+        "weight": 1,
+        "type": "copy"
+    },
+    {
+        "name": "sewer",
+        "path": "./gui/backgrounds/sewer.png",
+        "weight": 1,
+        "type": "copy"
+    },
+    {
+        "name": "special",
+        "path": "./gui/backgrounds/special.png",
+        "weight": 0.05,
+        "type": "tile"
+    },
+    {
+        "name": "wood",
+        "path": "./gui/backgrounds/wood.png",
+        "weight": 1,
+        "type": "copy"
+    }
+]

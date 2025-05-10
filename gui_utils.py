@@ -1,12 +1,14 @@
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from tktooltip import ToolTip
 import pygetwindow as gw
 import pywinstyles
-from PIL import Image, ImageTk, ImageDraw, ImageFont
+from PIL import Image, ImageTk, ImageDraw, ImageFont, ImageFilter
 from tkinter import ttk
 from darkdetect import theme as detect_theme
 from sys import argv
 from win32process import GetWindowThreadProcessId
-from random import choice
+from random import choices
 from capture import bitblt, wgc
 from segment_utils import *
 from win11toast import toast
@@ -14,6 +16,7 @@ from playsound import playsound
 import sv_ttk
 import json
 import ctypes
+import torch
 import tkinter as tk
 
 
@@ -270,11 +273,11 @@ def draw_version(image, width, height):
     rounded_image = draw_text_pil(
         rounded_image,
         f"v{constants.VERSION_INFO}",
-        ((width+text_width) // 2+40, (height+text_height) // 2 - 15),
+        ((width+text_width) // 2+5, (height+text_height) // 2-28),
         "./gui/Ubuntu-R.ttf",
         25,
         (255, 255, 255),
-        align="center",
+        align="left",
         outline_color=(0, 0, 0),
         outline_width=1,
     )
@@ -293,8 +296,12 @@ def draw_version(image, width, height):
     return rounded_image
 
 
-def draw_text_pil(img, text, position, font_path, font_size, color=(255, 255, 255), align='left', outline_color=(0, 0, 0), outline_width=2):
-    pil_img = Image.fromarray(img)
+def draw_text_pil(img, text, position, font_path, font_size,
+                  color=(255, 255, 255), align='left',
+                  outline_color=(0, 0, 0), outline_width=2,
+                  shadow_color=(50, 50, 50), shadow_offset=(3, 3),
+                  shadow_blur_radius=5):
+    pil_img = Image.fromarray(img).convert("RGBA")
     draw = ImageDraw.Draw(pil_img)
     font = ImageFont.truetype(font_path, font_size)
 
@@ -306,20 +313,101 @@ def draw_text_pil(img, text, position, font_path, font_size, color=(255, 255, 25
         y -= text_height // 2
     elif align == 'right':
         x -= text_width
-
+    shadow_img = Image.new("RGBA", pil_img.size, (0, 0, 0, 0))
+    shadow_draw = ImageDraw.Draw(shadow_img)
+    shadow_x = x + shadow_offset[0]
+    shadow_y = y + shadow_offset[1]
+    shadow_draw.text((shadow_x, shadow_y), text, font=font,
+                     fill=shadow_color + (255,))
+    if shadow_blur_radius > 0:
+        shadow_img = shadow_img.filter(
+            ImageFilter.GaussianBlur(radius=shadow_blur_radius))
+    pil_img = Image.alpha_composite(pil_img, shadow_img)
+    draw = ImageDraw.Draw(pil_img)
     if outline_width > 0:
         for dx in range(-outline_width, outline_width + 1):
             for dy in range(-outline_width, outline_width + 1):
-
                 if dx == 0 and dy == 0:
                     continue
                 draw.text((x + dx, y + dy), text,
                           font=font, fill=outline_color)
     draw.text((x, y), text, font=font, fill=color)
-    return np.array(pil_img)
+    return np.array(pil_img.convert("RGB"))
 
 
-def add_rounded_image_to_canvas(main_content, image_path, theme, height=200, radius=20):
+def create_fit_image(image, canvas_width, canvas_height, alignment="center", max_image_width=None, max_image_height=None):
+    if isinstance(image, np.ndarray):
+        if image.shape[2] == 4:
+            image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGRA2RGBA))
+        else:
+            image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGBA))
+
+    original_img_width, original_img_height = image.size
+
+    primary_scale_factor = float(canvas_width) / original_img_width
+
+    if max_image_width is not None:
+        if (original_img_width * primary_scale_factor) > max_image_width:
+            primary_scale_factor = float(max_image_width) / original_img_width
+
+    if max_image_height is not None:
+        if (original_img_height * primary_scale_factor) > max_image_height:
+            primary_scale_factor = float(
+                max_image_height) / original_img_height
+
+    scaled_img_width = int(original_img_width * primary_scale_factor)
+    scaled_img_height = int(original_img_height * primary_scale_factor)
+
+    scaled_img_width = max(1, scaled_img_width)
+    scaled_img_height = max(1, scaled_img_height)
+
+    if scaled_img_width != original_img_width or scaled_img_height != original_img_height:
+
+        image = image.resize(
+            (scaled_img_width, scaled_img_height), Image.Resampling.LANCZOS)
+
+    canvas = Image.new("RGBA", (canvas_width, canvas_height), (0, 0, 0, 0))
+
+    offset_x = 0
+    offset_y = 0
+
+    if alignment == "center":
+        offset_x = (canvas_width - scaled_img_width) // 2
+        offset_y = (canvas_height - scaled_img_height) // 2
+    elif alignment == "left":
+        offset_x = 0
+        offset_y = (canvas_height - scaled_img_height) // 2
+    elif alignment == "right":
+        offset_x = canvas_width - scaled_img_width
+        offset_y = (canvas_height - scaled_img_height) // 2
+    elif alignment == "top":
+        offset_x = (canvas_width - scaled_img_width) // 2
+        offset_y = 0
+    elif alignment == "bottom":
+        offset_x = (canvas_width - scaled_img_width) // 2
+        offset_y = canvas_height - scaled_img_height
+    elif alignment == "top_left":
+        offset_x = 0
+        offset_y = 0
+    elif alignment == "top_right":
+        offset_x = canvas_width - scaled_img_width
+        offset_y = 0
+    elif alignment == "bottom_left":
+        offset_x = 0
+        offset_y = canvas_height - scaled_img_height
+    elif alignment == "bottom_right":
+        offset_x = canvas_width - scaled_img_width
+        offset_y = canvas_height - scaled_img_height
+
+    offset_x = max(0, offset_x)
+    offset_y = max(0, offset_y)
+
+    canvas.paste(image, (offset_x, offset_y))
+
+    return cv2.cvtColor(np.array(canvas), cv2.COLOR_RGBA2BGRA)
+
+
+def add_rounded_image_to_canvas(main_content, image, theme, height=200, radius=20):
     def update_image(event=None):
         if not canvas.winfo_exists():
             return
@@ -329,9 +417,13 @@ def add_rounded_image_to_canvas(main_content, image_path, theme, height=200, rad
         width = int(available_width - 20)
         if width <= 0 or height <= 0:
             return
-        image = cv2.imread(image_path)
-        image = cv2.resize(image, (300, 300))
-        tiled_image = create_fill_image(image, width, height)
+        image_np = cv2.imread(image["path"])
+        if image["type"] == "copy":
+            image_np = cv2.resize(image_np, (300, 300))
+            tiled_image = create_fill_image(image_np, width, height)
+        elif image["type"] == "tile":
+            tiled_image = create_fit_image(
+                image_np, width, height)
         rounded_image = create_rounded_image(
             tiled_image, width, height, radius, theme)
         rounded_image_tk = ImageTk.PhotoImage(rounded_image)
@@ -416,9 +508,9 @@ def open_capture_window(root, main_content):
             f"[{Process(GetWindowThreadProcessId(w._hWnd)[1]).name()}]: {w.title}" for w in available_windows]
         w = available_windows[names.index(selected_title)]
         hwnd = w._hWnd
-        if str(w.title).strip().endswith("Microsoft​ Edge Beta"):
+        if str(w.title).strip().endswith("Microsoft​ Edge") or str(w.title).strip().endswith("Microsoft​ Edge Beta"):
             notice_label.config(
-                text="Note: canvas wont auto refresh with Release Microsoft Edge, try to use Edge Beta/Dev/Canary")
+                text="Note: canvas won't auto refresh with Release Microsoft Edge or Edge Beta, use Edge Dev/Canary instead")
         elif str(w.title).strip().endswith("Google Chrome"):
             notice_label.config(
                 text="Note: make sure you disable `CalculateNativeWinOcclusion`")
@@ -599,3 +691,11 @@ def send_sound_notification(epoch: int = 3):
     if get_config()["runs"]["sound"]:
         for _ in range(epoch):
             playsound(get_config()["runs"]["soundPath"])
+
+
+def get_random_background():
+    with open("./gui/backgrounds/structure.json", "r") as f:
+        structure = json.load(f)
+    weights = [bg["weight"] for bg in structure]
+    selected_bg = choices(structure, weights=weights, k=1)[0]
+    return selected_bg

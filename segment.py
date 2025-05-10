@@ -165,6 +165,30 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 continue
 
 
+def add_filled_circle_to_mask(mask, center, diameter):
+    if mask.ndim == 2:
+        H, W = mask.shape
+    elif mask.ndim == 3:
+        C, H, W = mask.shape
+    else:
+        pass
+    device = mask.device
+    dtype = mask.dtype
+    radius = diameter / 2.0
+    radius_sq = radius ** 2
+    cx, cy = int(center[0]), int(center[1])
+    y_coords, x_coords = torch.meshgrid(torch.arange(H, device=device),
+                                        torch.arange(W, device=device),
+                                        indexing='ij')
+    dist_sq = (x_coords.float() - cx)**2 + (y_coords.float() - cy)**2
+    circle_mask_bool = dist_sq <= radius_sq
+    circle_mask = circle_mask_bool.to(dtype)
+    if mask.ndim == 3:
+        circle_mask = circle_mask.unsqueeze(0)
+    updated_mask = torch.maximum(mask, circle_mask)
+    return updated_mask
+
+
 def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right_bottom_bound, suppress_idle_detection, shared_logger, type="fullscreen", hwnd=None):
     mask = get_masks_by_iou(image, afk_seg_model)
     '''
@@ -174,8 +198,10 @@ def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right
     '''
     start = position[0]
     end = position[1]
+    start_size = position[3]
     if start != None:
         start = (round(position[0][0]), round(position[0][1]))
+        mask = add_filled_circle_to_mask(mask, start, start_size)
         start = (start[0] + left_top_bound[0],
                  start[1] + left_top_bound[1])
     else:
@@ -349,7 +375,7 @@ def update_page(new_page_stat):
         widget.destroy()
     if page_stat == "launch":
         canvas = add_rounded_image_to_canvas(
-            main_content, f"./gui/backgrounds/{choice(listdir('./gui/backgrounds'))}", theme)
+            main_content, get_random_background(), theme)
         announcement_title = ttk.Label(
             main_content,
             text=f"{get_ui_translation('launch_announcements')}:",

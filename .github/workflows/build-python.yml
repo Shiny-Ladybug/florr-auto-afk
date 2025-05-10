@@ -35,6 +35,15 @@ jobs:
               raise ValueError("VERSION_INFO not found in constants.py")
           print(f"::set-output name=version::{match.group(1)}")
 
+      - name: Check for beta version
+        shell: bash
+        if: ${{ steps.get_version.outputs.version }}
+        run: |
+          if [[ "${{ steps.get_version.outputs.version }}" == *"Beta"* ]]; then
+            echo "Beta version detected: ${{ steps.get_version.outputs.version }}. Stopping workflow."
+            exit 1
+          fi
+
       - name: Install pywin32
         shell: powershell
         run: |
