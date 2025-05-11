@@ -6,6 +6,7 @@ page_test=测试
 page_settings=设置
 launch_announcements=公告
 launch_run=启动
+image_choose=选择
 console_clear=清除终端
 hooks_capture=添加捕获窗口
 capture_winname=捕获

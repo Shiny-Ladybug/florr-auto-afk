@@ -3,7 +3,7 @@ from tktooltip import ToolTip
 import pygetwindow as gw
 import pywinstyles
 from PIL import Image, ImageTk, ImageDraw, ImageFont, ImageFilter
-from tkinter import ttk
+from tkinter import ttk, filedialog
 from darkdetect import theme as detect_theme
 from sys import argv
 from win32process import GetWindowThreadProcessId
@@ -14,6 +14,7 @@ from win11toast import toast
 from playsound import playsound
 import sv_ttk
 import imghdr
+import psutil
 import json
 import ctypes
 import torch
@@ -473,7 +474,7 @@ def generate_announcement(skip_update=False):
                 changelog_msg += "No changelog available."
         else:
             changelog_msg += "No changelog available."
-    return "\n".join([update_msg, changelog_msg])
+    return "\n\n".join([update_msg, changelog_msg])
 
 
 def get_changelog():

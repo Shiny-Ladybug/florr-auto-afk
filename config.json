@@ -33,7 +33,7 @@
         "extendLength": 30,
         "mouseSpeed": 100,
         "skipUpdate": false,
-        "environment": false,
+        "environment": true,
         "debug": false,
         "windowSizeTolerance": 0.1,
         "windowSizeRatio": [

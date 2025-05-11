@@ -17,11 +17,11 @@ def try_locate_ready(img):
     except:
         pass
 
-def test_idle_thread(idled_flag, suppress_idle_detection, shared_logger):
+def test_idle_thread(idled_flag, suppress_idle_detection, shared_logger, not_stop_event):
     last_pos = None
     idle_iter = 0
     sleep_time = get_config()["runs"]["idleDetInterval"]
-    while True:
+    while not not_stop_event.is_set():
         with suppress_idle_detection.get_lock():
             if suppress_idle_detection.value:
                 sleep(1)
@@ -48,7 +48,7 @@ def test_idle_thread(idled_flag, suppress_idle_detection, shared_logger):
         sleep(sleep_time)
 
 
-def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windows):
+def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windows, stop_run_event):
     try:
         debugger("Loading YOLO models")
         afk_seg_model = YOLO(get_config()["yoloConfig"]["segModel"])
@@ -79,7 +79,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
     else:
         log_ret(
             f"Window detection for {[w['title'] for w in capture_windows]} enabled", "INFO", shared_logger)
-    while True:
+    while not stop_run_event.is_set():
         with idled_flag.get_lock():
             if not idled_flag.value:
                 sleep(1)
@@ -312,25 +312,28 @@ def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right
     debugger("`execute_afk` finished")
 
 
-def run_segment(idled_flag, suppress_idle_detection, shared_logger, capture_windows):
+def run_segment(idled_flag, suppress_idle_detection, shared_logger, capture_windows, stop_segment_event):
     global segment_process, idle_thread, afk_thread_process
-
-    idle_thread = multiprocessing.Process(
-        target=test_idle_thread, args=(idled_flag, suppress_idle_detection, shared_logger))
+    stop_idle_event = multiprocessing.Event()
+    stop_afk_event = multiprocessing.Event()
+    if get_config()["runs"]["autoTakeOverWhenIdle"]:
+        idle_thread = multiprocessing.Process(
+            target=test_idle_thread, args=(idled_flag, suppress_idle_detection, shared_logger, stop_idle_event))
     afk_thread_process = multiprocessing.Process(
-        target=afk_thread, args=(idled_flag, suppress_idle_detection, shared_logger, capture_windows))
-
+        target=afk_thread, args=(idled_flag, suppress_idle_detection, shared_logger, capture_windows, stop_afk_event))
     if get_config()["runs"]["autoTakeOverWhenIdle"]:
         idle_thread.start()
     afk_thread_process.start()
-
+    stop_segment_event.wait()
+    stop_idle_event.set()
+    stop_afk_event.set()
     if get_config()["runs"]["autoTakeOverWhenIdle"]:
         idle_thread.join()
     afk_thread_process.join()
 
 
 def start_segment_process(segment_running, shared_logger, capture_windows):
-    global segment_process, idled_flag, suppress_idle_detection, idle_thread, afk_thread_process
+    global segment_process, idled_flag, suppress_idle_detection, idle_thread, stop_event
     debugger("Starting segment process")
     check_config(shared_logger)
     segment_running.value = True
@@ -345,34 +348,23 @@ def start_segment_process(segment_running, shared_logger, capture_windows):
     if not get_config()["runs"]["autoTakeOverWhenIdle"]:
         with idled_flag.get_lock():
             idled_flag.value = True
-
-    segment_process = multiprocessing.Process(
-        target=run_segment, args=(idled_flag, suppress_idle_detection, shared_logger, capture_windows))
-    segment_process.start()
     log_ret("Segment process started", "INFO", shared_logger)
+    segment_process = multiprocessing.Process(
+        target=run_segment, args=(idled_flag, suppress_idle_detection, shared_logger, capture_windows, stop_event))
+    segment_process.start()
 
 
 def toggle_segment_process(capture_windows):
-    global segment_process, segment_running, shared_logger, idle_thread, afk_thread_process
+    global segment_process, segment_running, shared_logger, stop_event
     debugger("Toggling segment process")
     if segment_running.value:
         segment_running.value = False
-
-        if idle_thread is not None and idle_thread.is_alive():
-            idle_thread.terminate()
-            idle_thread.join()
-            idle_thread = None
-
-        if afk_thread_process is not None and afk_thread_process.is_alive():
-            afk_thread_process.terminate()
-            afk_thread_process.join()
-            afk_thread_process = None
-
+        stop_event.set()
         if segment_process is not None and segment_process.is_alive():
             segment_process.terminate()
             segment_process.join()
         segment_process = None
-
+        stop_event.clear()
         log_ret("Segment process and associated threads terminated.",
                 "INFO", shared_logger)
         update_page("launch")
@@ -382,24 +374,10 @@ def toggle_segment_process(capture_windows):
         update_page("console")
 
 
-def destroy_label():
-    global show_error_label
-    global error_label
-    if show_error_label:
-        error_label.destroy()
-        show_error_label = False
-
-
-def show_label(frame, text, color="black"):
-    global show_error_label
-    global error_label
-    destroy_label()
-    error_label = ttk.Label(frame, text=text, foreground=color, font=("Microsoft Yahei", 12))
-    error_label.pack(anchor="w")
-    show_error_label = True
-
-
 def start_test(frame, file_path : str):
+    if not file_path or file_path == "\n":
+        show_label(frame, "You haven't chosen a file yet!", "red")
+        return
     try:
         if not (file_path.lower().endswith(".png") or file_path.lower().endswith(".jpg") or file_path.lower().endswith(".jpeg")):
             raise FileNotFoundError
@@ -476,12 +454,35 @@ def start_test(frame, file_path : str):
                   right_bottom_bound, (0, 0, 255), 2)
     for point in line:
         cv2.circle(ori_image, point, 3, (255, 0, 0), -1)
-    print(1)
     save_test_image(ori_image, "afk_solution", "afk")
-    print(2)
     if get_config()["advanced"]["showLogger"]:
         cv2.imshow("image", ori_image)
         cv2.waitKey(0)
+
+
+def destroy_label():
+    global error_label
+    if error_label is not None:
+        if error_label.winfo_exists():
+            error_label.destroy()
+
+
+def show_label(frame, text, color="black"):
+    global error_label
+    destroy_label()
+    error_label = ttk.Label(frame, text=text, foreground=color, font=("Microsoft Yahei", 12))
+    error_label.pack(side="bottom", anchor="w")
+
+
+def choose_file(frame):
+    global filepath, filepath_label
+    if filepath_label is not None:
+        if filepath_label.winfo_exists():
+            filepath_label.destroy()
+    filepath = filedialog.askopenfilename(filetypes=(("Image files", ["*.png", "*.jpg", "*.jpeg"]),))
+    filepath_label = ttk.Label(frame, text=filepath, font=("Microsoft Yahei", 10))
+    filepath_label.pack(side="left", padx=10)
+    destroy_label()
 
 
 def update_page(new_page_stat):
@@ -495,11 +496,6 @@ def update_page(new_page_stat):
     if page_stat == "launch":
         canvas = add_rounded_image_to_canvas(
             main_content, get_random_background(), theme)
-        term_of_use = ttk.Label(
-            main_content,
-            text="This project was created by Shiny Ladybug (Github).\nBy using this application, you agree to the GPL-3.0 LICENSE.\n",
-            font=("Microsoft Yahei", 12, "bold"),
-        )
         announcement_title = ttk.Label(
             main_content,
             text=f"{get_ui_translation('launch_announcements')}:",
@@ -511,7 +507,6 @@ def update_page(new_page_stat):
             font=("Microsoft Yahei", 12),
         )
         canvas.pack(anchor="center", pady=20)
-        term_of_use.pack(anchor="w", pady=0)
         announcement_title.pack(anchor="w", pady=0)
         announcement_label.pack(anchor="w", pady=0)
         launch_button = ttk.Button(
@@ -651,22 +646,26 @@ def update_page(new_page_stat):
             update_capture_menu(main_content, window)
     elif page_stat == "test":
         scrollable_frame = create_scrollable_frame(main_content)
-        label = ttk.Label(scrollable_frame, text="Input image file path to test YOLO model:\n(either absolute or relative, only .png/.jpg/.jpeg allowed)", font=("Microsoft Yahei", 10))
-        entry = ttk.Entry(scrollable_frame)
+        label = ttk.Label(scrollable_frame, text="Choose image to test YOLO model:", font=("Microsoft Yahei", 10))
+        button_frame = ttk.Frame(scrollable_frame)
+        choose_button = ttk.Button(
+            button_frame, width=13, text=get_ui_translation("image_choose"), command=lambda: choose_file(button_frame))
         start_test_button = ttk.Button(
-            main_content, width=13, text=get_ui_translation("page_test"), command=lambda: start_test(scrollable_frame, entry.get()))
+            main_content, width=13, text=get_ui_translation("page_test"), command=lambda: start_test(scrollable_frame, filepath))
         label.pack(anchor="w", pady=5)
-        entry.pack(fill="x", pady=2)
+        button_frame.pack(anchor="w", pady=5)
+        choose_button.pack(side="left", anchor="w")
         start_test_button.pack(side="bottom", pady=10)
 
 
 if __name__ == "__main__":
-    show_error_label = False
-    error_label = None
+    error_label, filepath_label = None, None
+    filepath = ""
     multiprocessing.freeze_support()
+    stop_event = multiprocessing.Event()
     debugger("Main thread started")
     page_stat = "launch"
-    segment_process = idle_thread = afk_thread_process = None
+    segment_process = None
     segment_running = multiprocessing.Value(ctypes.c_bool, False)
     announcement = generate_announcement(
         get_config()["advanced"]["skipUpdate"])
