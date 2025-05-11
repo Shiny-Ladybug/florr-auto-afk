@@ -48,6 +48,10 @@ If you want to boot this without an `Internet Connection`, try to set `skipUpdat
 
 ## Changelog
 
+* 2025-05-11
+
+  Fix starting point issue, update GUI and change the notify mp3 audio, notify and press 'ready' when server close or afk fail
+
 * 2025-05-04
 
   If you turn on SaveTrainableDataset in Settings > Advanced, program will save the dataset to `./train` folder, I'm welcomed to receive those datasets to improve the AFK model
