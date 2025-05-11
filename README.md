@@ -1,4 +1,4 @@
-# florr auto afk (v1.2.4) (2025-05-05 SSL export Update)
+# florr auto afk (v1.2.5) (2025-05-11 SSL export Update)
 
 > As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
