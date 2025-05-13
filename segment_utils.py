@@ -11,12 +11,12 @@ import numpy as np
 from datetime import datetime
 from time import sleep, time, localtime
 from rich.console import Console
-from scipy.interpolate import interp1d
 from scipy.spatial import distance
 from re import match
 from rdp import rdp
 from traceback import print_exc
 import constants
+import torch
 from capture import wgc, bitblt
 from ultralytics import YOLO
 from tarfile import open as tar_open
@@ -365,14 +365,13 @@ def save_image(image, sub_type, type):
             f"./images/{type}/{sub_type}_{datetime.strftime(datetime.now(), '%Y-%m-%dT%H_%M_%SZ')}.png", image)
 
 
-def save_test_image(image, sub_type, type):
-    if get_config()["advanced"]["saveImage"]:
-        if not path.exists("./test"):
-            mkdir("./test")
-        if not path.exists(f"./test/{type}"):
-            mkdir(f"./test/{type}")
-        cv2.imwrite(
-            f"./test/{type}/{sub_type}_{datetime.strftime(datetime.now(), '%Y-%m-%dT%H_%M_%SZ')}.png", image)
+def save_test_image(image, sub_type, test_time: str):
+    if not path.exists("./test"):
+        mkdir("./test")
+    if not path.exists(f"./test/{test_time}"):
+        mkdir(f"./test/{test_time}")
+    cv2.imwrite(
+        f"./test/{test_time}/{sub_type}_{datetime.strftime(datetime.now(), '%Y-%m-%dT%H_%M_%SZ')}.png", image)
 
 
 def yolo_detect(model, img):
@@ -604,3 +603,27 @@ def check_config(shared_logger):
     if cpu_freq_ghz < 2.5:
         log_ret(f"Running on {cpu_freq_ghz:.2f}GHz CPU, slow exection Warning",
                 "WARNING", shared_logger, save=False)
+
+
+def add_filled_circle_to_mask(mask, center, diameter):
+    if mask.ndim == 2:
+        H, W = mask.shape
+    elif mask.ndim == 3:
+        C, H, W = mask.shape
+    else:
+        pass
+    device = mask.device
+    dtype = mask.dtype
+    radius = diameter / 2.0
+    radius_sq = radius ** 2
+    cx, cy = int(center[0]), int(center[1])
+    y_coords, x_coords = torch.meshgrid(torch.arange(H, device=device),
+                                        torch.arange(W, device=device),
+                                        indexing='ij')
+    dist_sq = (x_coords.float() - cx)**2 + (y_coords.float() - cy)**2
+    circle_mask_bool = dist_sq <= radius_sq
+    circle_mask = circle_mask_bool.to(dtype)
+    if mask.ndim == 3:
+        circle_mask = circle_mask.unsqueeze(0)
+    updated_mask = torch.maximum(mask, circle_mask)
+    return updated_mask

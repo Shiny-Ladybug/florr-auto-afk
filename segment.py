@@ -1,6 +1,7 @@
 from gui_utils import *
 import multiprocessing
 
+
 def try_locate_ready(img):
     ready = Image.open("models/assets/Ready.PNG")
     try:
@@ -12,10 +13,12 @@ def try_locate_ready(img):
                 target=send_sound_notification, args=(3,)).start()
             log_ret("AFK Detection Failed", "EVENT", shared_logger)
             debugger("AFK Detection Failed")
-            pyautogui.moveTo(box.left + box.width / 2, box.top + box.height / 2)
+            pyautogui.moveTo(box.left + box.width / 2,
+                             box.top + box.height / 2)
             pyautogui.click()
     except:
         pass
+
 
 def test_idle_thread(idled_flag, suppress_idle_detection, shared_logger, not_stop_event):
     last_pos = None
@@ -89,7 +92,8 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
             image = cv2.cvtColor(
                 np.array(image), cv2.COLOR_RGB2BGR)
             ori_image = image.copy()
-            multiprocessing.Process(target=try_locate_ready, args=(ori_image,)).start()
+            multiprocessing.Process(
+                target=try_locate_ready, args=(ori_image,)).start()
             position = detect_afk(image, afk_det_model)
             if position is None:
                 debugger("No AFK window found")
@@ -140,7 +144,8 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 image = cv2.cvtColor(
                     np.array(image), cv2.COLOR_RGBA2RGB)
                 ori_image = image.copy()
-                multiprocessing.Process(target=try_locate_ready, args=(ori_image,)).start()
+                multiprocessing.Process(
+                    target=try_locate_ready, args=(ori_image,)).start()
                 position = detect_afk(image, afk_det_model)
                 if position is None:
                     results.append(False)
@@ -182,40 +187,16 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 continue
 
 
-def add_filled_circle_to_mask(mask, center, diameter):
-    if mask.ndim == 2:
-        H, W = mask.shape
-    elif mask.ndim == 3:
-        C, H, W = mask.shape
-    else:
-        pass
-    device = mask.device
-    dtype = mask.dtype
-    radius = diameter / 2.0
-    radius_sq = radius ** 2
-    cx, cy = int(center[0]), int(center[1])
-    y_coords, x_coords = torch.meshgrid(torch.arange(H, device=device),
-                                        torch.arange(W, device=device),
-                                        indexing='ij')
-    dist_sq = (x_coords.float() - cx)**2 + (y_coords.float() - cy)**2
-    circle_mask_bool = dist_sq <= radius_sq
-    circle_mask = circle_mask_bool.to(dtype)
-    if mask.ndim == 3:
-        circle_mask = circle_mask.unsqueeze(0)
-    updated_mask = torch.maximum(mask, circle_mask)
-    return updated_mask
-
-
 def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right_bottom_bound, suppress_idle_detection, shared_logger, type="fullscreen", hwnd=None):
     mask = get_masks_by_iou(image, afk_seg_model)
-    '''
-    results = afk_seg_model.predict(image, retina_masks=True, verbose=False)
-    masks = results[0].masks
-    masks = pred.segmentation.onnx_seg_afk(afk_seg_model, image)
-    '''
     start = position[0]
     end = position[1]
     start_size = position[3]
+    if mask is None:
+        log_ret("No masks found", "ERROR", shared_logger)
+        save_image(image, "mask", "error")
+        sleep(1)
+        return
     if start is not None:
         start = (round(position[0][0]), round(position[0][1]))
         mask = add_filled_circle_to_mask(mask, start, start_size)
@@ -229,11 +210,6 @@ def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right
     else:
         log_ret("No end found, going for linear prediction",
                 "WARNING", shared_logger)
-    if mask is None:
-        log_ret("No masks found", "ERROR", shared_logger)
-        save_image(image, "mask", "error")
-        sleep(1)
-        return
     if get_config()["advanced"]["saveYOLOImage"]:
         mask_image = image.copy()
         mask_ = mask.cpu().numpy()
@@ -374,9 +350,10 @@ def toggle_segment_process(capture_windows):
         update_page("console")
 
 
-def start_test(frame, file_path : str):
+def start_test(frame, file_path: str):
+    test_time = int(time())
     if not file_path or file_path == "\n":
-        show_label(frame, "You haven't chosen a file yet!", "red")
+        show_label(frame, "You haven't chosen a file yet", "red")
         return
     try:
         if not (file_path.lower().endswith(".png") or file_path.lower().endswith(".jpg") or file_path.lower().endswith(".jpeg")):
@@ -386,7 +363,8 @@ def start_test(frame, file_path : str):
         if img_type != "png" and img_type != "jpeg":
             raise FileNotFoundError
     except FileNotFoundError:
-        show_label(frame, "Cannot find specified path or is not .png/.jpg!", "red")
+        show_label(
+            frame, "Cannot find specified path or is not PNG or JPG type", "red")
         return
     try:
         debugger("Testing: Loading YOLO models")
@@ -397,9 +375,9 @@ def start_test(frame, file_path : str):
         remove(get_config()["yoloConfig"]["segModel"])
         remove(get_config()["yoloConfig"]["detModel"])
         remove("./models/version")
-        show_label(frame, "Failed to load YOLO models!", "red")
+        show_label(frame, "Failed to load YOLO models", "red")
         return
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    # image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     ori_image = image.copy()
     position = detect_afk(image, afk_det_model)
     if position is None:
@@ -407,8 +385,9 @@ def start_test(frame, file_path : str):
         show_label(frame, "Test result: No AFK window found")
         return
     debugger("Test result: Found AFK window")
-    show_label(frame, "Test result: Found AFK window, results saved to ./test")
-    save_test_image(image, "afk", "afk")
+    show_label(
+        frame, f"Test result: Found AFK window, results saved to ./test/{test_time}")
+    save_test_image(image, "afk", test_time)
     left_top_bound = position[2][0]
     right_bottom_bound = position[2][1]
     image = crop_image(left_top_bound, right_bottom_bound, ori_image)
@@ -416,6 +395,9 @@ def start_test(frame, file_path : str):
     start = position[0]
     end = position[1]
     start_size = position[3]
+    if mask is None:
+        save_test_image(image, "mask_err", test_time)
+        return
     if start is not None:
         start = (round(position[0][0]), round(position[0][1]))
         mask = add_filled_circle_to_mask(mask, start, start_size)
@@ -424,9 +406,6 @@ def start_test(frame, file_path : str):
     if end is not None:
         end = (round(position[1][0]), round(position[1][1]))
         end = (end[0] + left_top_bound[0], end[1] + left_top_bound[1])
-    if mask is None:
-        save_test_image(image, "mask", "error")
-        return
     if get_config()["advanced"]["saveYOLOImage"]:
         mask_image = image.copy()
         mask_ = mask.cpu().numpy()
@@ -434,7 +413,7 @@ def start_test(frame, file_path : str):
         mask_colored = np.stack(
             [mask_ * 255, mask_ * 0, mask_ * 0], axis=-1).astype(np.uint8)
         overlay = cv2.addWeighted(mask_image, 0.7, mask_colored, 0.3, 0)
-        save_test_image(overlay, "seg", "yolo")
+        save_test_image(overlay, "yolo_seg", test_time)
     line_ = segment_path(mask, start, end, left_top_bound)
     line = [line_[i]
             for i in range(0, len(line_), get_config()["advanced"]["optimizeQuantization"])]
@@ -454,10 +433,7 @@ def start_test(frame, file_path : str):
                   right_bottom_bound, (0, 0, 255), 2)
     for point in line:
         cv2.circle(ori_image, point, 3, (255, 0, 0), -1)
-    save_test_image(ori_image, "afk_solution", "afk")
-    if get_config()["advanced"]["showLogger"]:
-        cv2.imshow("image", ori_image)
-        cv2.waitKey(0)
+    save_test_image(ori_image, "afk_solution", test_time)
 
 
 def destroy_label():
@@ -467,10 +443,18 @@ def destroy_label():
             error_label.destroy()
 
 
-def show_label(frame, text, color="black"):
+def show_label(frame, text, color="base"):
     global error_label
+    theme = detect_theme() if get_config(
+    )["gui"]["theme"] == "auto" else ("Dark" if get_config()["gui"]["theme"].lower() == "dark" else "Light")
     destroy_label()
-    error_label = ttk.Label(frame, text=text, foreground=color, font=("Microsoft Yahei", 12))
+    if color == "base":
+        if theme == "Dark":
+            color = "#ffffff"
+        else:
+            color = "#000000"
+    error_label = ttk.Label(
+        frame, text=text, foreground=color, font=("Microsoft Yahei", 12))
     error_label.pack(side="bottom", anchor="w")
 
 
@@ -479,8 +463,10 @@ def choose_file(frame):
     if filepath_label is not None:
         if filepath_label.winfo_exists():
             filepath_label.destroy()
-    filepath = filedialog.askopenfilename(filetypes=(("Image files", ["*.png", "*.jpg", "*.jpeg"]),))
-    filepath_label = ttk.Label(frame, text=filepath, font=("Microsoft Yahei", 10))
+    filepath = filedialog.askopenfilename(filetypes=(
+        ("Image files", ["*.png", "*.jpg", "*.jpeg"]),))
+    filepath_label = ttk.Label(
+        frame, text=filepath, font=("Microsoft Yahei", 10))
     filepath_label.pack(side="left", padx=10)
     destroy_label()
 
@@ -518,6 +504,7 @@ def update_page(new_page_stat):
             command=lambda: toggle_segment_process([{"title": w["title"],
                                                      "hwnd": w["hwnd"], "capture_method": w["capture_method"]} for w in capture_windows])
         )
+        launch_button.config(style="Accent.TButton")
         launch_button.pack(side="bottom", anchor="se", padx=10, pady=10)
     elif page_stat == "console":
         if theme == "Dark":
@@ -556,6 +543,7 @@ def update_page(new_page_stat):
             console_text.config(state="disabled")
             console_text.see(tk.END)
             main_content.after(1000, refresh_logger)
+
         if segment_running.value:
             terminate_button = ttk.Button(
                 main_content,
@@ -564,6 +552,7 @@ def update_page(new_page_stat):
                 command=lambda: toggle_segment_process([{"title": w["title"],
                                                          "hwnd": w["hwnd"], "capture_method": w["capture_method"]} for w in capture_windows])
             )
+            terminate_button.config(style="Accent.TButton")
             terminate_button.pack(side="bottom", anchor="e", padx=10, pady=5)
         clear_console_button = ttk.Button(
             main_content,
@@ -641,12 +630,14 @@ def update_page(new_page_stat):
         button_frame.pack(fill="x", pady=5)
         plus_button = ttk.Button(
             button_frame, text=get_ui_translation("hooks_capture"), command=lambda: open_capture_window(root, main_content))
+        plus_button.config(style="Accent.TButton")
         plus_button.pack(side="right", padx=10, pady=10)
         for window in capture_windows:
             update_capture_menu(main_content, window)
     elif page_stat == "test":
         scrollable_frame = create_scrollable_frame(main_content)
-        label = ttk.Label(scrollable_frame, text="Choose image to test YOLO model:", font=("Microsoft Yahei", 10))
+        label = ttk.Label(scrollable_frame, text="Choose image to test YOLO model:", font=(
+            "Microsoft Yahei", 10))
         button_frame = ttk.Frame(scrollable_frame)
         choose_button = ttk.Button(
             button_frame, width=13, text=get_ui_translation("image_choose"), command=lambda: choose_file(button_frame))
@@ -655,6 +646,7 @@ def update_page(new_page_stat):
         label.pack(anchor="w", pady=5)
         button_frame.pack(anchor="w", pady=5)
         choose_button.pack(side="left", anchor="w")
+        start_test_button.config(style="Accent.TButton")
         start_test_button.pack(side="bottom", pady=10)
 
 
@@ -673,10 +665,16 @@ if __name__ == "__main__":
         update_models()
     else:
         log("Skipping model update", "WARNING")
+
+    if constants.VERSION_TYPE == "Release":
+        version = constants.VERSION_INFO
+    else:
+        version = f"{constants.VERSION_INFO} {constants.VERSION_TYPE}.{constants.SUB_VERSION}"
+
     with multiprocessing.Manager() as manager:
         shared_logger = manager.list()
         root = tk.Tk()
-        root.title(f"florr-auto-afk (v{constants.VERSION_INFO})")
+        root.title(f"florr-auto-afk (v{version})")
         root.iconbitmap("./gui/icon.ico")
         root.geometry("1000x600")
         root.minsize(1000, 600)

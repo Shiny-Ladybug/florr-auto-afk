@@ -34,13 +34,22 @@ jobs:
           if not match:
               raise ValueError("VERSION_INFO not found in constants.py")
           print(f"::set-output name=version::{match.group(1)}")
+          match = re.search(r'VERSION_TYPE\s*=\s*"([^"]+)"', content)
+          if not match:
+              raise ValueError("VERSION_TYPE not found in constants.py")
+          print(f"::set-output name=versiontype::{match.group(1)}")
+          match = re.search(r'SUB_VERSION\s*=\s*"([^"]+)"', content)
+          if not match:
+              raise ValueError("VERSION_TYPE not found in constants.py")
+          print(f"::set-output name=versionsub::{match.group(1)}")
 
-      - name: Check for beta version
+
+      - name: Check for Dev version
         shell: bash
-        if: ${{ steps.get_version.outputs.version }}
+        if: ${{ steps.get_version.outputs.versiontype }}
         run: |
-          if [[ "${{ steps.get_version.outputs.version }}" == *"Beta"* ]]; then
-            echo "Beta version detected: ${{ steps.get_version.outputs.version }}. Stopping workflow."
+          if [[ "${{ steps.get_version.outputs.versiontype }}" == "Dev" ]]; then
+            echo "Dev version detected: v${{ steps.get_version.outputs.version }} ${{ steps.get_version.outputs.versiontype }}.${{ steps.get_version.outputs.versionsub }}. Stopping workflow."
             exit 1
           fi
 
@@ -73,15 +82,23 @@ jobs:
           Compress-Archive -Path ./dist/segment/* -DestinationPath ./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.zip
 
       - name: Upload Executable to Release
-        if: ${{ github.event_name == 'push' }}  # Only run on push events
+        if: ${{ github.event_name == 'push' }}
         shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Create a new release using the extracted version
-          gh release create "v${{ steps.get_version.outputs.version }}" \
-            --title "Release v${{ steps.get_version.outputs.version }}" \
-            --notes "Automated release for version v${{ steps.get_version.outputs.version }}" \
-            --target main
-          # Upload the ZIP file to the release
-          gh release upload "v${{ steps.get_version.outputs.version }}" "./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.zip" --clobber
+          if [[ "${{ steps.get_version.outputs.versiontype }}" == "Pre-Release" ]]; then
+            gh release create "v${{ steps.get_version.outputs.version }}.${{ steps.get_version.outputs.versionsub }}" \
+              --title "Pre-Release v${{ steps.get_version.outputs.version }}.${{ steps.get_version.outputs.versionsub }}" \
+              --notes "Automated pre-release for version v${{ steps.get_version.outputs.version }}.${{ steps.get_version.outputs.versionsub }}" \
+              --target main \
+              --prerelease
+            gh release upload "v${{ steps.get_version.outputs.version }}.${{ steps.get_version.outputs.versionsub }}" "./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.zip" --clobber
+          else
+            gh release create "v${{ steps.get_version.outputs.version }}" \
+              --title "Release v${{ steps.get_version.outputs.version }}" \
+              --notes "Automated release for version v${{ steps.get_version.outputs.version }}" \
+              --target main
+            gh release upload "v${{ steps.get_version.outputs.version }}" "./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.zip" --clobber
+          fi
+          

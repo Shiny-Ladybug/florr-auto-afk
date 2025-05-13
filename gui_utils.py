@@ -17,7 +17,6 @@ import imghdr
 import psutil
 import json
 import ctypes
-import torch
 import tkinter as tk
 
 
@@ -224,36 +223,42 @@ def create_fill_image(image, width, height):
     return cv2.cvtColor(np.array(tiled_image), cv2.COLOR_RGBA2BGRA)
 
 
-def create_rounded_image(image, width, height, radius, theme):
-    if width <= 0 or height <= 0:
-        raise ValueError(
-            f"Invalid width ({width}) or height ({height}) for resizing.")
+def create_rounded_image(image, width, height, radius, theme, blur_strength=0.05):
     image = cv2.resize(image, (width, height))
-    if image.shape[2] == 3:  # If the image is RGB (3 channels)
+    if image.shape[2] == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2BGRA)
     bg_color = (28, 28, 28, 255) if theme == "Dark" else (250, 250, 250, 255)
     background = np.full((height, width, 4), bg_color, dtype=np.uint8)
-    mask = np.zeros((height, width, 4), dtype=np.uint8)
-    mask[:, :, 3] = 255  # Set alpha channel to fully opaque
-    cv2.rectangle(mask, (radius, 0), (width - radius, height),
-                  (255, 255, 255, 255), -1)
-    cv2.rectangle(mask, (0, radius), (width, height - radius),
-                  (255, 255, 255, 255), -1)
-    cv2.circle(mask, (radius, radius), radius, (255, 255, 255, 255), -1)
-    cv2.circle(mask, (width - radius, radius),
-               radius, (255, 255, 255, 255), -1)
-    cv2.circle(mask, (radius, height - radius),
-               radius, (255, 255, 255, 255), -1)
-    cv2.circle(mask, (width - radius, height - radius),
-               radius, (255, 255, 255, 255), -1)
+    mask_shape = np.zeros((height, width), dtype=np.uint8)
+    cv2.rectangle(mask_shape, (radius, 0), (width - radius, height), 255, -1)
+    cv2.rectangle(mask_shape, (0, radius), (width, height - radius), 255, -1)
+    cv2.circle(mask_shape, (radius, radius), radius, 255, -1)
+    cv2.circle(mask_shape, (width - radius, radius), radius, 255, -1)
+    cv2.circle(mask_shape, (radius, height - radius), radius, 255, -1)
+    cv2.circle(mask_shape, (width - radius, height - radius), radius, 255, -1)
+    sigma_x = blur_strength * (radius / 2.0)
+    if sigma_x < 0.1:
+        sigma_x = 0.1
+    ksize = int(sigma_x * 6 + 1)
+    if ksize % 2 == 0:
+        ksize += 1
+    blurred_alpha_mask = cv2.GaussianBlur(mask_shape, (ksize, ksize), sigma_x)
 
-    rounded_image = cv2.bitwise_and(image, mask)
-    inverted_mask = cv2.bitwise_not(mask)
-    rounded_image = cv2.add(
-        rounded_image, cv2.bitwise_and(background, inverted_mask))
-    rounded_image = draw_version(rounded_image, width, height)
-    rounded_image = cv2.cvtColor(rounded_image, cv2.COLOR_BGRA2RGBA)
-    return Image.fromarray(rounded_image)
+    foreground_float = image.astype(np.float32) / 255.0
+    background_float = background.astype(np.float32) / 255.0
+
+    alpha_channel = blurred_alpha_mask.astype(np.float32) / 255.0
+    alpha_3ch = cv2.cvtColor(alpha_channel, cv2.COLOR_GRAY2BGR)
+
+    blended_rgb = (foreground_float[:, :, :3] * alpha_3ch) + \
+                  (background_float[:, :, :3] * (1.0 - alpha_3ch))
+
+    final_image_bgra = np.zeros((height, width, 4), dtype=np.uint8)
+    final_image_bgra[:, :, :3] = (blended_rgb * 255).astype(np.uint8)
+    final_image_bgra[:, :, 3] = blurred_alpha_mask
+    final_image_bgra = draw_version(final_image_bgra, width, height)
+    rounded_image_rgba = cv2.cvtColor(final_image_bgra, cv2.COLOR_BGRA2RGBA)
+    return Image.fromarray(rounded_image_rgba)
 
 
 def draw_version(image, width, height):
@@ -271,9 +276,13 @@ def draw_version(image, width, height):
     text_width, text_height = ImageDraw.Draw(
         Image.fromarray(rounded_image)).textsize("florr-auto-afk", font=ImageFont.truetype("./gui/Ubuntu-R.ttf", 50))
 
+    if constants.VERSION_TYPE == "Release":
+        version = constants.VERSION_INFO
+    else:
+        version = f"{constants.VERSION_INFO} {constants.VERSION_TYPE}.{constants.SUB_VERSION}"
     rounded_image = draw_text_pil(
         rounded_image,
-        f"v{constants.VERSION_INFO}",
+        f"v{version}",
         ((width+text_width) // 2+5, (height+text_height) // 2-28),
         "./gui/Ubuntu-R.ttf",
         25,
@@ -594,6 +603,7 @@ def open_capture_window(root, main_content):
         command=lambda: add_window_hook(
             choose_window.get(), capture_method.get(), create_window, main_content),
     )
+    add_button.config(style="Accent.TButton")
     add_button.pack(side="left", padx=10)
     apply_theme_to_titlebar(create_window)
 
