@@ -1,7 +1,7 @@
 ASSET_REPO = "Shiny-Ladybug/assets"
 PROJECT_REPO = "Shiny-Ladybug/florr-auto-afk"
 VERSION_INFO = "1.2.6"
-VERSION_TYPE = "Dev"
+VERSION_TYPE = "Pre-Release"
 assert VERSION_TYPE in ["Release", "Pre-Release", "Dev"]
 SUB_VERSION = "0"
 RELEASE_DATE = "2025-05-13 20:17:00"
