@@ -90,7 +90,6 @@ def create_settings_widgets(parent, config_data, parent_key=""):
     global theme, translations, config
     translations = load_translations(get_config()["gui"]["language"])
     for key, value in config_data.items():
-        print(key, value, type(value))
         full_key = f"{parent_key}.{key}" if parent_key else key
         display_key = translate(full_key, translations)
         tips = get_settings_tips(full_key)
