@@ -17,6 +17,8 @@ from rdp import rdp
 from traceback import print_exc
 import constants
 import torch
+from scipy.ndimage import distance_transform_edt
+from skimage.morphology import skeletonize as skimage_skeletonize
 from capture import wgc, bitblt
 from ultralytics import YOLO
 from tarfile import open as tar_open
@@ -222,61 +224,193 @@ def check_update():
     return compare_versions(local_version, remote_version), remote_version
 
 
-def reorder_points_by_distance(start, points):
-    if start is not None:
-        sorted_points = [start]
-    else:
-        sorted_points = [points[0]]
-    while points:
-        last_point = sorted_points[-1]
-        min_distance = float('inf')
-        next_point = None
-        for point in points:
-            try:
-                dist = distance.euclidean(last_point, point)
-            except:
-                print(last_point, point)
-            if dist < min_distance:
-                min_distance = dist
-                next_point = point
-        sorted_points.append(next_point)
-        points.remove(next_point)
-    return sorted_points
+class AFK_Path:
+    def __init__(self, raw_points: list[tuple[int, int]], start_p=None, end_p=None) -> None:
+        self.raw_points: list[tuple[int, int]] = raw_points
+        self.start_p: tuple[int, int] = start_p
+        self.end_p: tuple[int, int] = end_p
+        self.rdp_ed: bool = False
+        self.rdp_points: list[tuple[int, int]] = None
+        self.extend_point: tuple[int, int] = None
+        self.sorted: bool = False
+        self.sorted_points: list[tuple[int, int]] = None
+        self.length: float = None
+
+    def sort(self, width=20) -> None:
+        if width is None or width <= 0:
+            width = 20
+        if self.end_p is not None:
+            unused = set(self.raw_points)
+            sorted_points = []
+            current_point = self.end_p
+            while unused:
+                next_point = min(
+                    unused, key=lambda p: distance.euclidean(current_point, p))
+                sorted_points.append(next_point)
+                unused.remove(next_point)
+                current_point = next_point
+            if self.start_p is not None:
+                truncated_points = []
+                dist = last_dist = float("inf")
+                for point in sorted_points:
+                    dist = distance.euclidean(point, self.start_p)
+                    if not ((dist > last_dist) and (dist < width/2)):
+                        truncated_points.append(point)
+                        last_dist = dist
+                    else:
+                        truncated_points.append(self.start_p)
+                        break
+            else:
+                truncated_points = sorted_points
+            self.sorted_points = truncated_points[::-1]
+            self.sorted_points.append(self.end_p)
+            self.sorted = True
+        else:
+            if self.start_p is not None:
+                unused = set(self.raw_points)
+                sorted_points = []
+                current_point = self.start_p
+                while unused:
+                    next_point = min(
+                        unused, key=lambda p: distance.euclidean(current_point, p))
+                    sorted_points.append(next_point)
+                    unused.remove(next_point)
+                    current_point = next_point
+                truncated_points = sorted_points
+                self.sorted = True
+            else:
+                self.sorted_points = self.raw_points
+                self.sorted = False
+
+    def rdp(self, epsilon=1) -> None:
+        if self.sorted:
+            if not self.rdp_points:
+                self.rdp_points = rdp(
+                    self.sorted_points, epsilon=epsilon)
+                self.rdp_ed = True
+        else:
+            raise ValueError(
+                "Path is not sorted. Please sort the path before applying RDP.")
+
+    def extend(self, length) -> None:
+        if self.rdp_ed:
+            end = self.rdp_points[-1]
+            last = self.rdp_points[-2]
+            l_l2_dist = distance.euclidean(end, last)
+            sine_theta = (end[1] - last[1]) / l_l2_dist
+            cosine_theta = (end[0] - last[0]) / l_l2_dist
+            self.extend_point = (
+                end[0] + length * cosine_theta, end[1] + length * sine_theta)
+        elif self.sorted:
+            end = self.sorted_points[-1]
+            last = self.sorted_points[-2]
+            l_l2_dist = distance.euclidean(end, last)
+            sine_theta = (end[1] - last[1]) / l_l2_dist
+            cosine_theta = (end[0] - last[0]) / l_l2_dist
+            self.extend_point = (
+                end[0] + length * cosine_theta, end[1] + length * sine_theta)
+        else:
+            raise ValueError(
+                "Path is not sorted. Please sort the path before extending.")
+
+    def get_final(self, top_left_bound: tuple[int, int] = (0, 0), precise=True) -> list[tuple[int, int]]:
+        if self.rdp_ed:
+            if self.extend_point is not None:
+                self.rdp_points.append(self.extend_point)
+            ret = [(p[0] + top_left_bound[0], p[1] + top_left_bound[1])
+                   for p in self.rdp_points]
+        elif self.sorted:
+            if self.extend_point is not None:
+                self.sorted_points.append(self.extend_point)
+            ret = [(p[0] + top_left_bound[0], p[1] + top_left_bound[1])
+                   for p in self.sorted_points]
+        else:
+            ret = []
+        if precise:
+            return ret
+        else:
+            return [(int(p[0]), int(p[1])) for p in ret]
+
+    def get_length(self) -> float:
+        if self.length is not None:
+            return self.length
+        if self.rdp_ed:
+            length = 0
+            for i in range(len(self.rdp_points)-1):
+                length += distance.euclidean(
+                    self.rdp_points[i], self.rdp_points[i+1])
+            self.length = length
+            return length
+        elif self.sorted:
+            length = 0
+            for i in range(len(self.sorted_points)-1):
+                length += distance.euclidean(
+                    self.sorted_points[i], self.sorted_points[i+1])
+            self.length = length
+            return length
+        else:
+            raise ValueError(
+                "Path is not sorted. Please sort the path before getting length.")
 
 
-def truncate_points(start, points, end):
-    sorted_points = []
-    if end is not None:
-        sorted_points = [end]
-    else:
-        sorted_points = [points[-1]]
-    while points:
-        last_point = sorted_points[-1]
-        min_distance = float('inf')
-        for point in points:
-            dist = distance.euclidean(last_point, point)
-            if dist < min_distance:
-                min_distance = dist
-                next_point = point
-        sorted_points.append(next_point)
-        if distance.euclidean(next_point, start) < 2:
-            sorted_points.append(start)
-            break
-        points.remove(next_point)
-    sorted_points = sorted_points[::-1]
-    return sorted_points
+class AFK_Segment:
+    def __init__(self, afk_window_image: cv2.Mat, mask: torch.Tensor, start: tuple[int, int], end: tuple[int, int], start_size: int) -> None:
+        self.image = afk_window_image
+        self.mask = mask
+        self.start = start
+        self.end = end
+        self.width = None
+        self.start_size = start_size
+        self.segmented_path = None
+        self.start_color = tuple(int(i) for i in tuple(
+            afk_window_image[int(start[1]), int(start[0])]))
+        self.inverse_start_color = tuple(int(i) for i in tuple(
+            255 - afk_window_image[int(start[1]), int(start[0])]))
 
+    def save_start(self) -> None:
+        if self.mask.ndim == 2:
+            H, W = self.mask.shape
+        elif self.mask.ndim == 3:
+            C, H, W = self.mask.shape
+        else:
+            pass
+        device = self.mask.device
+        dtype = self.mask.dtype
+        radius = self.start_size / 2.0
+        radius_sq = radius ** 2
+        cx, cy = int(self.start[0]), int(self.start[1])
+        y_coords, x_coords = torch.meshgrid(torch.arange(H, device=device),
+                                            torch.arange(W, device=device),
+                                            indexing='ij')
+        dist_sq = (x_coords.float() - cx)**2 + (y_coords.float() - cy)**2
+        circle_mask_bool = dist_sq <= radius_sq
+        circle_mask = circle_mask_bool.to(dtype)
+        if self.mask.ndim == 3:
+            circle_mask = circle_mask.unsqueeze(0)
+        self.mask = torch.maximum(self.mask, circle_mask)
 
-def extend_line(line):
-    end = line[-1]
-    last = line[-2]
-    l_l2_dist = distance.euclidean(end, last)
-    sine_theta = (end[1] - last[1]) / l_l2_dist
-    cosine_theta = (end[0] - last[0]) / l_l2_dist
-    delta_x = get_config()["advanced"]["extendLength"] * cosine_theta
-    delta_y = get_config()["advanced"]["extendLength"] * sine_theta
-    end = (round(end[0] + delta_x), round(end[1] + delta_y))
-    return line + [end]
+    def segment_path(self) -> list[tuple[int, int]]:
+        mask = self.mask.cpu().numpy()
+        mask = (mask * 255).astype(np.uint8)
+        skeleton = cv2.ximgproc.thinning(mask)
+        contours, _ = cv2.findContours(
+            skeleton, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contour = contours[0]
+        line = [(point[0][0], point[0][1]) for point in contour]
+        line = list(set(line))
+        self.segmented_path = line
+        return line
+
+    def get_width(self):
+        if self.width is None:
+            mask_np = self.mask.cpu().numpy()
+            mask_bin = (mask_np > 0).astype(np.uint8)
+            skeleton = skimage_skeletonize(mask_bin).astype(np.uint8)
+            dist_map = distance_transform_edt(mask_bin)
+            thickness_list = dist_map[skeleton > 0] * 2
+            thickness_list = dist_map[skeleton > 0] * 2
+            self.width = np.mean(thickness_list)
+        return self.width
 
 
 def apply_mouse_movement(points, speed=get_config()["advanced"]["mouseSpeed"], active=False):
@@ -305,16 +439,6 @@ def obs(type):
 
 def crop_image(left_top_bound, right_bottom_bound, image):
     return image[left_top_bound[1]:right_bottom_bound[1], left_top_bound[0]:right_bottom_bound[0]]
-
-
-def validate_line(line):
-    new = []
-    for pos in line:
-        try:
-            new.append((int(pos[0]), int(pos[1])))
-        except:
-            pass
-    return new
 
 
 def test_environment(afk_seg_model):
@@ -398,7 +522,7 @@ def yolo_detect(model, img):
     return detected, img
 
 
-def detect_afk(img, afk_det_model):
+def detect_afk(img, afk_det_model, caller="main", test_time=None):
     things = yolo_detect(afk_det_model, img)
     windows_pos = None
     for thing in things[0]:
@@ -411,8 +535,8 @@ def detect_afk(img, afk_det_model):
     window_height = windows_pos[1][1] - windows_pos[0][1]
     ratio = window_width / window_height
     if (get_config()["advanced"]["windowSizeRatio"][0]*(1-get_config()["advanced"]["windowSizeTolerance"]) < ratio < get_config()["advanced"]["windowSizeRatio"][0]*(1+get_config()["advanced"]["windowSizeTolerance"])) or (get_config()["advanced"]["windowSizeRatio"][1]*(1-get_config()["advanced"]["windowSizeTolerance"]) < ratio < get_config()["advanced"]["windowSizeRatio"][1]*(1+get_config()["advanced"]["windowSizeTolerance"])):
-        afk_window_img = img[windows_pos[0][1]:windows_pos[1][1],
-                             windows_pos[0][0]:windows_pos[1][0]]
+        afk_window_img = img.copy()[windows_pos[0][1]:windows_pos[1][1],
+                                    windows_pos[0][0]:windows_pos[1][0]]
         things_afk = yolo_detect(afk_det_model, afk_window_img)
         if get_config()["advanced"]["saveYOLOImage"]:
             for obj in things_afk[0]:
@@ -420,7 +544,10 @@ def detect_afk(img, afk_det_model):
                               (obj['x_2'], obj['y_2']), color=(0, 255, 0), thickness=2)
                 cv2.putText(afk_window_img, obj['name'], (obj['x_1'], obj['y_1'] - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                save_image(afk_window_img, "det", "yolo")
+                if caller == "main":
+                    save_image(afk_window_img, "det", "yolo")
+                elif caller == "test":
+                    save_test_image(afk_window_img, "det", test_time)
         start_pos = end_pos = None
         start_max_confidence = end_max_confidence = 0
         start_size = 0
@@ -435,33 +562,6 @@ def detect_afk(img, afk_det_model):
                 end_max_confidence = thing['confidence']
         return start_pos, end_pos, windows_pos, start_size
     return None
-
-
-def remove_duplicate_points(points):
-    new_points = []
-    for point in points:
-        if point not in new_points:
-            new_points.append(point)
-    return new_points
-
-
-def segment_path(mask, start, end, left_top_bound):
-    mask = mask.cpu().numpy()
-    mask = (mask * 255).astype(np.uint8)
-    skeleton = cv2.ximgproc.thinning(mask)
-    contours, _ = cv2.findContours(
-        skeleton, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    contour = contours[0]
-    line = []
-    for point in contour:
-        line.append((point[0][0] + left_top_bound[0],
-                    point[0][1] + left_top_bound[1]))
-    line = remove_duplicate_points(line)
-    if start is not None and end is not None:
-        line = truncate_points(start, line, end)
-    else:
-        line = reorder_points_by_distance(start, line)
-    return line
 
 
 def move_a_bit(interval=0.1):
@@ -586,9 +686,6 @@ def check_config(shared_logger):
     if config["exposure"]["moveInterval"]*4 > config["exposure"]["duration"]:
         log_ret("`moveInterval` is grater than exposure `duration`, it may cause unnecessary move lead to death",
                 "WARNING", shared_logger, save=False)
-    if config["advanced"]["showLogger"]:
-        log_ret("Program will show path after each detection, program will hung until you close the window",
-                "WARNING", shared_logger, save=False)
     if not config["advanced"]["saveTrainData"]:
         log_ret("If you want to improve the AFK model and contribute to the project, suggest turning on `Save Trainable Dataset` in Settings > Advanced",
                 "Notice", shared_logger, save=False)
@@ -605,25 +702,39 @@ def check_config(shared_logger):
                 "WARNING", shared_logger, save=False)
 
 
-def add_filled_circle_to_mask(mask, center, diameter):
-    if mask.ndim == 2:
-        H, W = mask.shape
-    elif mask.ndim == 3:
-        C, H, W = mask.shape
-    else:
-        pass
-    device = mask.device
-    dtype = mask.dtype
-    radius = diameter / 2.0
-    radius_sq = radius ** 2
-    cx, cy = int(center[0]), int(center[1])
-    y_coords, x_coords = torch.meshgrid(torch.arange(H, device=device),
-                                        torch.arange(W, device=device),
-                                        indexing='ij')
-    dist_sq = (x_coords.float() - cx)**2 + (y_coords.float() - cy)**2
-    circle_mask_bool = dist_sq <= radius_sq
-    circle_mask = circle_mask_bool.to(dtype)
-    if mask.ndim == 3:
-        circle_mask = circle_mask.unsqueeze(0)
-    updated_mask = torch.maximum(mask, circle_mask)
-    return updated_mask
+def draw_annotated_image(ori_image, line, start_p, end_p, window_pos, start_color, path_width, path_length) -> cv2.Mat:
+    image = ori_image.copy()
+    for point in line:
+        cv2.circle(image, point, 3, (255, 0, 0), -1)
+    for i in range(len(line) - 1):
+        cv2.arrowedLine(
+            image,
+            line[i],
+            line[i + 1],
+            (255, 255, 0),
+            2,
+            tipLength=0.1
+        )
+    if start_p is not None:
+        cv2.circle(image, (int(
+            start_p[0]+window_pos[0][0]), int(start_p[1]+window_pos[0][1])), 5, start_color, -1)
+    if end_p is not None:
+        cv2.circle(image, (int(
+            end_p[0]+window_pos[0][0]), int(end_p[1]+window_pos[0][1])), 5, (0, 0, 255), -1)
+
+    p1 = window_pos[0]
+    p2 = window_pos[1]
+    corner_len = 20
+
+    cv2.line(image, p1, (p1[0]+corner_len, p1[1]), (0, 0, 255), 2)
+    cv2.line(image, p1, (p1[0], p1[1]+corner_len), (0, 0, 255), 2)
+    cv2.line(image, (p2[0], p1[1]), (p2[0]-corner_len, p1[1]), (0, 0, 255), 2)
+    cv2.line(image, (p2[0], p1[1]), (p2[0], p1[1]+corner_len), (0, 0, 255), 2)
+    cv2.line(image, (p1[0], p2[1]), (p1[0]+corner_len, p2[1]), (0, 0, 255), 2)
+    cv2.line(image, (p1[0], p2[1]), (p1[0], p2[1]-corner_len), (0, 0, 255), 2)
+    cv2.line(image, p2, (p2[0]-corner_len, p2[1]), (0, 0, 255), 2)
+    cv2.line(image, p2, (p2[0], p2[1]-corner_len), (0, 0, 255), 2)
+
+    cv2.putText(image, f'P_w: {round(path_width*100)/100}, P_l: {round(path_length*100)/100}', (window_pos[0][0]+10, window_pos[1][1]-10), cv2.FONT_HERSHEY_SIMPLEX,
+                0.5, (255, 255, 255))
+    return image

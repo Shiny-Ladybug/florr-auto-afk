@@ -19,7 +19,6 @@ exposure.duration=Exposure Duration
 gui.language=Language
 gui.theme=Theme
 advanced.saveTrainData=Save Trainable Dataset
-advanced.showLogger=Show Logger
 advanced.moveMouse=Move Mouse
 advanced.useOBS=Use OBS
 advanced.verbose=Verbose

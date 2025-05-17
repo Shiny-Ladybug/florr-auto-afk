@@ -19,7 +19,6 @@ exposure.duration=Exposure Duration
 gui.language=Only for `zh-cn` and `en-us`
 gui.theme=Only for `dark`, `light` and `auto`
 advanced.saveTrainData=Save trainable dataset for semi-supervised learning at `./train`, decide whether you want to upload those data to the developer for improving the model
-advanced.showLogger=Show cv2 detect window after detected AFK, program **won't** continue until you close the window
 advanced.moveMouse=Move Mouse
 advanced.useOBS=Set OBS start hotkey to `Ctrl+Alt+Shift+O` and stop hotkey to `Ctrl+Alt+Shift+P`, then you can use OBS to record the screen, and the program will automatically start/stop recording when AFK detected/bypassed
 advanced.verbose=Verbose

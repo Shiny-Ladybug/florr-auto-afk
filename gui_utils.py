@@ -188,27 +188,80 @@ def create_settings_widgets(parent, config_data, parent_key=""):
             entry.bind("<FocusOut>", update_number)
             entry.bind("<Return>", update_number)
         else:
-            label = ttk.Label(
-                parent, text=f"{display_key}:", font=("Microsoft Yahei", 10))
-            label.pack(anchor="w", pady=5)
-            ToolTip(label, msg=tips, delay=0.2)
-            entry = ttk.Entry(parent)
-            entry.insert(0, str(value))
-            entry.pack(fill="x", pady=2)
+            if full_key == "gui.language":
+                label = ttk.Label(
+                    parent, text=f"{display_key}:", font=("Microsoft Yahei", 10))
+                label.pack(anchor="w", pady=5)
+                ToolTip(label, msg=tips, delay=0.2)
+                entry = ttk.Combobox(
+                    parent,
+                    values=["en-us", "zh-cn"],
+                    state="readonly",
+                    font=("Microsoft Yahei", 10),
+                )
+                entry.set(value)
+                entry.pack(fill="x", pady=2)
 
-            def update_other(event, key=key, entry=entry):
-                config_data[key] = entry.get()
-                parent_key = None
-                for k, v in config.items():
-                    if list(v.keys()) == list(config_data.keys()):
-                        parent_key = k
-                        break
-                if parent_key:
-                    config[parent_key] = config_data
-                save_config_to_file(config)
+                def update_language(event=None, key=key, entry=entry):
+                    config_data[key] = entry.get()
+                    parent_key = None
+                    for k, v in config.items():
+                        if list(v.keys()) == list(config_data.keys()):
+                            parent_key = k
+                            break
+                    if parent_key:
+                        config[parent_key] = config_data
+                    save_config_to_file(config)
+                entry.bind("<FocusOut>", update_language)
+                entry.bind("<Return>", update_language)
+            elif full_key == "gui.theme":
+                label = ttk.Label(
+                    parent, text=f"{display_key}:", font=("Microsoft Yahei", 10))
+                label.pack(anchor="w", pady=5)
+                ToolTip(label, msg=tips, delay=0.2)
+                entry = ttk.Combobox(
+                    parent,
+                    values=["auto", "dark", "light"],
+                    state="readonly",
+                    font=("Microsoft Yahei", 10),
+                )
+                entry.set(value)
+                entry.pack(fill="x", pady=2)
 
-            entry.bind("<FocusOut>", update_other)
-            entry.bind("<Return>", update_other)
+                def update_theme(event=None, key=key, entry=entry):
+                    config_data[key] = entry.get()
+                    parent_key = None
+                    for k, v in config.items():
+                        if list(v.keys()) == list(config_data.keys()):
+                            parent_key = k
+                            break
+                    if parent_key:
+                        config[parent_key] = config_data
+                    save_config_to_file(config)
+                entry.bind("<FocusOut>", update_theme)
+                entry.bind("<Return>", update_theme)
+            else:
+                label = ttk.Label(
+                    parent, text=f"{display_key}:", font=("Microsoft Yahei", 10))
+                label.pack(anchor="w", pady=5)
+                ToolTip(label, msg=tips, delay=0.2)
+                entry = ttk.Entry(parent)
+                entry.insert(0, str(value))
+                entry.pack(fill="x", pady=2)
+
+                def update_other(event, key=key, entry=entry):
+                    config_data[key] = entry.get()
+                    parent_key = None
+                    for k, v in config.items():
+                        if list(v.keys()) == list(config_data.keys()):
+                            parent_key = k
+                            break
+                    if parent_key:
+                        config[parent_key] = config_data
+                    save_config_to_file(config)
+
+                entry.bind("<FocusOut>", update_other)
+                entry.bind("<Return>", update_other)
 
 
 def create_fill_image(image, width, height):

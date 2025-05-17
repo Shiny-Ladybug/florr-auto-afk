@@ -133,7 +133,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 image = crop_image(
                     left_top_bound, right_bottom_bound, ori_image)
             execute_afk(position, ori_image, image, afk_seg_model,
-                        left_top_bound, right_bottom_bound, suppress_idle_detection, shared_logger, type="fullscreen")
+                        suppress_idle_detection, shared_logger, type="fullscreen")
         else:
             results = []
             for window in capture_windows:
@@ -175,7 +175,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                     image = crop_image(
                         left_top_bound, right_bottom_bound, ori_image)
                 execute_afk(position, ori_image, image, afk_seg_model,
-                            left_top_bound, right_bottom_bound, suppress_idle_detection, shared_logger, type="window", hwnd=window['hwnd'])
+                            suppress_idle_detection, shared_logger, type="window", hwnd=window['hwnd'])
                 results.append(True)
             if not any(results):
                 if get_config()["advanced"]["verbose"]:
@@ -187,29 +187,26 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 continue
 
 
-def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right_bottom_bound, suppress_idle_detection, shared_logger, type="fullscreen", hwnd=None):
+def execute_afk(position, ori_image, image, afk_seg_model, suppress_idle_detection, shared_logger, type="fullscreen", hwnd=None):
     mask = get_masks_by_iou(image, afk_seg_model)
-    start = position[0]
-    end = position[1]
-    start_size = position[3]
+    start_p, end_p, window_pos, start_size = position
     if mask is None:
         log_ret("No masks found", "ERROR", shared_logger)
         save_image(image, "mask", "error")
         sleep(1)
         return
-    if start is not None:
-        start = (round(position[0][0]), round(position[0][1]))
-        mask = add_filled_circle_to_mask(mask, start, start_size)
-        start = (start[0] + left_top_bound[0],
-                 start[1] + left_top_bound[1])
-    else:
-        log_ret("No start found", "WARNING", shared_logger)
-    if end is not None:
-        end = (round(position[1][0]), round(position[1][1]))
-        end = (end[0] + left_top_bound[0], end[1] + left_top_bound[1])
-    else:
-        log_ret("No end found, going for linear prediction",
+
+    if start_p is None:
+        log_ret("No start point found, going for AUTO prediction",
                 "WARNING", shared_logger)
+    if end_p is None:
+        log_ret("No end found, going for LINEAR prediction",
+                "WARNING", shared_logger)
+
+    afk_mask = AFK_Segment(image, mask, start_p, end_p, start_size)
+    if start_p is not None:
+        afk_mask.save_start()
+
     if get_config()["advanced"]["saveYOLOImage"]:
         mask_image = image.copy()
         mask_ = mask.cpu().numpy()
@@ -218,30 +215,20 @@ def execute_afk(position, ori_image, image, afk_seg_model, left_top_bound, right
             [mask_ * 255, mask_ * 0, mask_ * 0], axis=-1).astype(np.uint8)
         overlay = cv2.addWeighted(mask_image, 0.7, mask_colored, 0.3, 0)
         save_image(overlay, "seg", "yolo")
+
     log_ret("Using yolo to bypass AFK", "EVENT", shared_logger)
-    line_ = segment_path(mask, start, end, left_top_bound)
-    line = [line_[i]
-            for i in range(0, len(line_), get_config()["advanced"]["optimizeQuantization"])]
-    line = rdp(line, get_config()["advanced"]["rdpEpsilon"])
-    try:
-        line = extend_line(line)
-    except:
-        pass
-    final_np = np.array(line, np.int32)
-    final_np = final_np.reshape((-1, 1, 2))
-    if start is not None:
-        cv2.circle(ori_image, start, 5, (0, 255, 0), -1)
-    if end is not None:
-        cv2.circle(ori_image, end, 5, (0, 0, 255), -1)
-    cv2.polylines(ori_image, [final_np], False, (0, 255, 0), 2)
-    cv2.rectangle(ori_image, left_top_bound,
-                  right_bottom_bound, (0, 0, 255), 2)
-    for point in line:
-        cv2.circle(ori_image, point, 3, (255, 0, 0), -1)
+
+    afk_path = AFK_Path(afk_mask.segment_path(), start_p, end_p)
+    afk_path.sort(afk_mask.get_width())
+    afk_path.rdp(get_config()["advanced"]["rdpEpsilon"])
+    afk_path.extend(get_config()["advanced"]["extendLength"])
+    line = afk_path.get_final(window_pos[0], precise=False)
+
+    ori_image = draw_annotated_image(
+        ori_image, line, start_p, end_p, window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length())
+
     save_image(ori_image, "afk_solution", "afk")
-    if get_config()["advanced"]["showLogger"]:
-        cv2.imshow("image", ori_image)
-        cv2.waitKey(0)
+
     if get_config()["advanced"]["useOBS"]:
         obs("start")
         sleep(1)
@@ -377,62 +364,46 @@ def start_test(frame, file_path: str):
         remove("./models/version")
         show_label(frame, "Failed to load YOLO models", "red")
         return
-    # image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
     ori_image = image.copy()
-    position = detect_afk(image, afk_det_model)
+    position = detect_afk(image, afk_det_model,
+                          caller="test", test_time=test_time)
     if position is None:
         debugger("Test result: No AFK window found")
         show_label(frame, "Test result: No AFK window found")
         return
+    start_p, end_p, window_pos, start_size = position
     debugger("Test result: Found AFK window")
     show_label(
         frame, f"Test result: Found AFK window, results saved to ./test/{test_time}")
-    save_test_image(image, "afk", test_time)
-    left_top_bound = position[2][0]
-    right_bottom_bound = position[2][1]
-    image = crop_image(left_top_bound, right_bottom_bound, ori_image)
-    mask = get_masks_by_iou(image, afk_seg_model)
-    start = position[0]
-    end = position[1]
-    start_size = position[3]
+    cropped_image = crop_image(
+        window_pos[0], window_pos[1], image)
+    mask = get_masks_by_iou(cropped_image, afk_seg_model)
     if mask is None:
         save_test_image(image, "mask_err", test_time)
         return
-    if start is not None:
-        start = (round(position[0][0]), round(position[0][1]))
-        mask = add_filled_circle_to_mask(mask, start, start_size)
-        start = (start[0] + left_top_bound[0],
-                 start[1] + left_top_bound[1])
-    if end is not None:
-        end = (round(position[1][0]), round(position[1][1]))
-        end = (end[0] + left_top_bound[0], end[1] + left_top_bound[1])
+    afk_mask = AFK_Segment(image, mask, start_p, end_p, start_size)
+    if start_p is not None:
+        afk_mask.save_start()
+
     if get_config()["advanced"]["saveYOLOImage"]:
-        mask_image = image.copy()
+        mask_image = cropped_image.copy()
         mask_ = mask.cpu().numpy()
         mask_ = cv2.resize(mask_, (mask_image.shape[1], mask_image.shape[0]))
         mask_colored = np.stack(
             [mask_ * 255, mask_ * 0, mask_ * 0], axis=-1).astype(np.uint8)
         overlay = cv2.addWeighted(mask_image, 0.7, mask_colored, 0.3, 0)
         save_test_image(overlay, "yolo_seg", test_time)
-    line_ = segment_path(mask, start, end, left_top_bound)
-    line = [line_[i]
-            for i in range(0, len(line_), get_config()["advanced"]["optimizeQuantization"])]
-    line = rdp(line, get_config()["advanced"]["rdpEpsilon"])
-    try:
-        line = extend_line(line)
-    except:
-        pass
-    final_np = np.array(line, np.int32)
-    final_np = final_np.reshape((-1, 1, 2))
-    if start is not None:
-        cv2.circle(ori_image, start, 5, (0, 255, 0), -1)
-    if end is not None:
-        cv2.circle(ori_image, end, 5, (0, 0, 255), -1)
-    cv2.polylines(ori_image, [final_np], False, (0, 255, 0), 2)
-    cv2.rectangle(ori_image, left_top_bound,
-                  right_bottom_bound, (0, 0, 255), 2)
-    for point in line:
-        cv2.circle(ori_image, point, 3, (255, 0, 0), -1)
+
+    afk_path = AFK_Path(afk_mask.segment_path(), start_p, end_p)
+    afk_path.sort(afk_mask.get_width())
+    afk_path.rdp(get_config()["advanced"]["rdpEpsilon"])
+    afk_path.extend(get_config()["advanced"]["extendLength"])
+    line = afk_path.get_final(window_pos[0], precise=False)
+
+    ori_image = draw_annotated_image(
+        ori_image, line, start_p, end_p, window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length())
+
     save_test_image(ori_image, "afk_solution", test_time)
 
 
@@ -544,22 +515,25 @@ def update_page(new_page_stat):
             console_text.see(tk.END)
             main_content.after(1000, refresh_logger)
 
+        button_frame = ttk.Frame(main_content)
+        button_frame.pack(side="bottom", anchor="se",
+                          padx=10, pady=5, fill="x")
         if segment_running.value:
             terminate_button = ttk.Button(
-                main_content,
+                button_frame,
                 text="Terminate",
                 width=13,
                 command=lambda: toggle_segment_process([{"title": w["title"],
                                                          "hwnd": w["hwnd"], "capture_method": w["capture_method"]} for w in capture_windows])
             )
             terminate_button.config(style="Accent.TButton")
-            terminate_button.pack(side="bottom", anchor="e", padx=10, pady=5)
+            terminate_button.pack(side="right", padx=(10, 0))
         clear_console_button = ttk.Button(
-            main_content,
+            button_frame,
             text=get_ui_translation("console_clear"),
             command=lambda: clear_console()
         )
-        clear_console_button.pack(side="bottom", anchor="se", padx=10, pady=5)
+        clear_console_button.pack(side="right")
 
         def clear_console():
             shared_logger[:] = []

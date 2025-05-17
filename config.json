@@ -21,7 +21,6 @@
     },
     "advanced": {
         "saveTrainData": false,
-        "showLogger": false,
         "moveMouse": true,
         "useOBS": false,
         "verbose": true,
@@ -32,8 +31,8 @@
         "saveYOLOImage": true,
         "extendLength": 30,
         "mouseSpeed": 100,
-        "skipUpdate": false,
-        "environment": false,
+        "skipUpdate": true,
+        "environment": true,
         "debug": false,
         "windowSizeTolerance": 0.1,
         "windowSizeRatio": [

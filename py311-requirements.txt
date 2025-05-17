@@ -4,6 +4,7 @@ torchvision
 ultralytics
 lap>=0.5.12
 scipy
+scikit-image
 scikit-learn
 rich
 PyAutoGUI

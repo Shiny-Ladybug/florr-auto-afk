@@ -1,9 +1,9 @@
 ASSET_REPO = "Shiny-Ladybug/assets"
 PROJECT_REPO = "Shiny-Ladybug/florr-auto-afk"
 VERSION_INFO = "1.2.6"
-VERSION_TYPE = "Pre-Release"
+VERSION_TYPE = "Dev"
 assert VERSION_TYPE in ["Release", "Pre-Release", "Dev"]
-SUB_VERSION = "0"
+SUB_VERSION = "1"
 RELEASE_DATE = "2025-05-13 20:17:00"
 CHANGELOG = {
     "1.2.5": ["fix starting point issue",
