@@ -52,6 +52,12 @@ See the settings page in the GUI menu. In the config, you can tweak parameters t
 
 If you are Chinese by accident and can't understand what this is, set `language` to `zh-cn` for Chinese settings.
 
+Some cats are unsatisfied and want explicit explanations for how everything in the setting works.
+
+Now you can go to `Settings.md` to learn about all that stuff.
+
+Oh, and by the way, people didn't even notice that hovering above the config choices gives more details.
+
 ## INFO
 
 In the latest v1.2.x version, I added background AFK Check detection support. This requires that your browser supports disabling `CalculateNativeWinOcclusion`.
