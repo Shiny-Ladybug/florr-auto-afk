@@ -83,6 +83,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
         log_ret(
             f"Window detection for {[w['title'] for w in capture_windows]} enabled", "INFO", shared_logger)
     while not stop_run_event.is_set():
+        start_time = time()
         with idled_flag.get_lock():
             if not idled_flag.value:
                 sleep(1)
@@ -101,7 +102,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 if countdown != -1 and time() > eta_timestamp:
                     log_ret("Countdown Ends, program exiting", "EVENT")
                     break
-                sleep(get_config()["advanced"]["epochInterval"])
+                sleep(max(0, get_config()["advanced"]["epochInterval"] - (time() - start_time)))
                 continue
             log_ret("Found AFK window", "EVENT", shared_logger)
             debugger("Found AFK window")
@@ -181,7 +182,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 if countdown != -1 and time() > eta_timestamp:
                     log_ret("Countdown Ends, program exiting", "EVENT")
                     break
-                sleep(get_config()["advanced"]["epochInterval"])
+                sleep(max(0, get_config()["advanced"]["epochInterval"] - (time() - start_time)))
                 continue
 
 
