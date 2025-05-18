@@ -1,10 +1,13 @@
 ASSET_REPO = "Shiny-Ladybug/assets"
 PROJECT_REPO = "Shiny-Ladybug/florr-auto-afk"
+DATASET_REPO = "Shiny-Ladybug/florr-afk"
 VERSION_INFO = "1.2.6"
-VERSION_TYPE = "Dev"
+VERSION_TYPE = "Pre-Release"
 assert VERSION_TYPE in ["Release", "Pre-Release", "Dev"]
 SUB_VERSION = "1"
-RELEASE_DATE = "2025-05-13 20:17:00"
+RELEASE_DATE = "2025-05-18 13:53:00"
+GITHUB_TOKEN = "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"
+# just remind that token above has only `rw` access to `only` the dataset repo, so idc if it leaks or not
 CHANGELOG = {
     "1.2.5": ["fix starting point issue",
               "update GUI and change the notify mp3 audio",

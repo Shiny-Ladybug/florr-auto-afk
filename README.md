@@ -1,22 +1,24 @@
 # florr auto afk (v1.2.5) (2025-05-11 SSL export Update)
 
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Shiny-Ladybug/florr-auto-afk/build-python.yml?style=for-the-badge)![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/Shiny-Ladybug/florr-auto-afk?style=for-the-badge)![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Shiny-Ladybug/florr-auto-afk/total?style=for-the-badge)![GitHub Release](https://img.shields.io/github/v/release/Shiny-Ladybug/florr-auto-afk?style=for-the-badge)
+
 > As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
 > [!CAUTION]
-> 
->M28 can send player messages and AFK Checks. If you can solve the check but cannot respond to his messages, it may result in a BAN.
+>
+> M28 can send player messages and AFK Checks. If you can solve the check but cannot respond to his messages, it may result in a BAN.
 
 ## How to Use
 
+### Executables
+
 A cat told me that somehow he can't understand this README document. So I decided to fix it. I figured I should explain how to USE it.
 
-### Option Lazy
-
-Just go to [RELEASE](https://github.com/Shiny-Ladybug/florr-auto-afk/releases) and click the blue stuff that says `florr-auto-afk-v1.*.*.zip`.
+Go to [RELEASE](https://github.com/Shiny-Ladybug/florr-auto-afk/releases) and click the blue stuff that says `florr-auto-afk-v1.*.*.zip`.
 
 Then you can unzip it, put it anywhere you want, and then run the `segment.exe` file.
 
-### Option Developer
+### Deploy
 
 If you want the source code as well as the `exe` file, you might want to choose this option.
 
@@ -52,9 +54,9 @@ See the settings page in the GUI menu. In the config, you can tweak parameters t
 
 If you are Chinese by accident and can't understand what this is, set `language` to `zh-cn` for Chinese settings.
 
-Some cats are unsatisfied and want explicit explanations for how everything in the setting works.
+Some cats still weren't satisfied with this and want explicit explanations for how everything in the setting works.
 
-Now you can go to `Settings.md` to learn about all that stuff.
+Now you can go to [Settings.md](./Settings.md) to learn about all that stuff.
 
 Oh, and by the way, people didn't even notice that hovering above the config choices gives more details.
 
@@ -103,15 +105,12 @@ Now those stupid codes go under the `onnx` branch.
 * 2025-05-11
 
   Fix starting point issue, update GUI and change the notify mp3 audio, notify and press 'ready' when server close or afk fail
-
 * 2025-05-04
 
   If you turn on SaveTrainableDataset in Settings > Advanced, program will save the dataset to `./train` folder, I'm welcomed to receive those datasets to improve the AFK model
-
 * 2025-04-26
 
   Add background AFK Check detection support
-  
 * 2025-04-18
 
   Add GUI, exposure, idle detection support
@@ -210,7 +209,7 @@ A: Suggest turning on `Save Trainable Dataset` in Settings > Advanced. Then cont
 
 **I DO NOT RECOMMEND TRUSTING THIS SCRIPT**
 
-It can pass some AFK checks.
+It can pass some AFK Checks.
 
 The longer you stay in the same server, the AFK checks get harder.
 

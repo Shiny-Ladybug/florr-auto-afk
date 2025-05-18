@@ -3,7 +3,7 @@ from tktooltip import ToolTip
 import pygetwindow as gw
 import pywinstyles
 from PIL import Image, ImageTk, ImageDraw, ImageFont, ImageFilter
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, messagebox
 from darkdetect import theme as detect_theme
 from sys import argv
 from win32process import GetWindowThreadProcessId
@@ -144,6 +144,9 @@ def create_settings_widgets(parent, config_data, parent_key=""):
                 if parent_key:
                     config[parent_key] = config_data
                 save_config_to_file(config)
+                if key == "saveTrainData":
+                    if var.get():
+                        show_share_warn(True)
             var.trace_add("write", update_bool)
 
         elif isinstance(value, (int, float)):
@@ -763,3 +766,29 @@ def get_random_background():
     weights = [bg["weight"] for bg in structure]
     selected_bg = choices(structure, weights=weights, k=1)[0]
     return selected_bg
+
+
+def save_eula(shared: bool):
+    message = f'This file is generated automantically at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ({int(time())}).\nBy setting `share` to yes, dataset will upload to remote repository (https://github.com/Shiny-Ladybug/florr-afk).\nshare={"yes" if shared else "no"}'
+    with open("./eula.txt", "w") as f:
+        f.write(message)
+
+
+def check_eula():
+    try:
+        with open("./eula.txt", "r") as f:
+            lines = f.readlines()
+            if len(lines) > 0:
+                last_line = lines[-1].strip()
+                if last_line.startswith("share="):
+                    return last_line.split("=")[1] == "yes"
+    except FileNotFoundError:
+        return False
+
+
+def show_share_warn(force: bool = False):
+    if path.exists("./eula.txt") and not force:
+        return
+    shared = messagebox.askquestion('Save Datasets',
+                                    'Are you sure you want to share the datasets?\nThis will not share your personal information.\nYou can also set this in Settings Page.\nCheck the shared datasets in https://github.com/Shiny-Ladybug/florr-afk')
+    save_eula(shared == "yes")

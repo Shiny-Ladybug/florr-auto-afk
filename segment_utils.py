@@ -17,11 +17,14 @@ from rdp import rdp
 from traceback import print_exc
 import constants
 import torch
+import json
 from scipy.ndimage import distance_transform_edt
 from skimage.morphology import skeletonize as skimage_skeletonize
 from capture import wgc, bitblt
 from ultralytics import YOLO
 from tarfile import open as tar_open
+from github import Github
+import uuid
 
 console = Console()
 
@@ -621,9 +624,7 @@ def get_masks_by_iou(image, afk_seg_model: YOLO, lower_iou=0.3, upper_iou=0.7, s
     if len(results[0].masks.data) != 1:
         results.sort(key=lambda x: x.boxes.conf[0], reverse=True)
     mask = results[0].masks.data[0]
-    if get_config()["advanced"]["saveTrainData"]:
-        export_result_to_dataset(results, image)
-    return mask
+    return mask, results
 
 
 def export_result_to_dataset(results, image, epsilon=1):
@@ -670,6 +671,7 @@ def export_result_to_dataset(results, image, epsilon=1):
     with tar_open("./train/train.tar.gz", "w:gz") as tar:
         tar.add("./train/images", arcname="images")
         tar.add("./train/split", arcname="split")
+    return labelme_data
 
 
 def check_config(shared_logger):
@@ -738,3 +740,37 @@ def draw_annotated_image(ori_image, line, start_p, end_p, window_pos, start_colo
     cv2.putText(image, f'P_w: {round(path_width*100)/100}, P_l: {round(path_length*100)/100}', (window_pos[0][0]+10, window_pos[1][1]-10), cv2.FONT_HERSHEY_SIMPLEX,
                 0.5, (255, 255, 255))
     return image
+
+
+def gh_upload_file(repo, target_path, content, message):
+    try:
+        contents = repo.get_contents(target_path)
+        repo.update_file(
+            target_path,
+            message,
+            content,
+            contents.sha
+        )
+    except Exception:
+        repo.create_file(
+            target_path,
+            message,
+            content
+        )
+
+
+def gh_upload_dataset(image, label):
+    g = Github(constants.GITHUB_TOKEN)
+    repo = g.get_repo(constants.DATASET_REPO)
+    alias = str(uuid.uuid4()).replace("-", "")
+    date = datetime.now().strftime("%Y-%m-%dT%H_%M_%SZ")
+    _, img_encoded = cv2.imencode('.png', image)
+    img_bytes = img_encoded.tobytes()
+    label_bytes = json.dumps(label, ensure_ascii=False,
+                             indent=2).encode('utf-8')
+    gh_upload_file(repo, f"./{alias}/{alias}.png",
+                   img_bytes, f"{date} {alias[:5]} Image")
+    gh_upload_file(repo, f"./{alias}/{alias}.json",
+                   label_bytes, f"{date} {alias[:5]} Label")
+    log(f"Uploaded dataset to GitHub with hash {alias}", "INFO")
+    return alias

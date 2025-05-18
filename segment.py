@@ -1,5 +1,6 @@
 from gui_utils import *
 import multiprocessing
+import copy
 
 
 def try_locate_ready(img):
@@ -188,14 +189,17 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
 
 
 def execute_afk(position, ori_image, image, afk_seg_model, suppress_idle_detection, shared_logger, type="fullscreen", hwnd=None):
-    mask = get_masks_by_iou(image, afk_seg_model)
-    start_p, end_p, window_pos, start_size = position
-    if mask is None:
+    res = get_masks_by_iou(image, afk_seg_model)
+    if res is None:
         log_ret("No masks found", "ERROR", shared_logger)
         save_image(image, "mask", "error")
-        sleep(1)
         return
+    start_p, end_p, window_pos, start_size = position
+    mask, results = res
 
+    results_ = copy.deepcopy(results)
+    image_ = copy.deepcopy(image)
+    threading_save(image_, results_)
     if start_p is None:
         log_ret("No start point found, going for AUTO prediction",
                 "WARNING", shared_logger)
@@ -378,10 +382,12 @@ def start_test(frame, file_path: str):
         frame, f"Test result: Found AFK window, results saved to ./test/{test_time}")
     cropped_image = crop_image(
         window_pos[0], window_pos[1], image)
-    mask = get_masks_by_iou(cropped_image, afk_seg_model)
-    if mask is None:
+    res = get_masks_by_iou(cropped_image, afk_seg_model)
+    if res is None:
         save_test_image(image, "mask_err", test_time)
         return
+    mask, results = res
+
     afk_mask = AFK_Segment(image, mask, start_p, end_p, start_size)
     if start_p is not None:
         afk_mask.save_start()
@@ -624,10 +630,22 @@ def update_page(new_page_stat):
         start_test_button.pack(side="bottom", pady=10)
 
 
+def threading_save(image, results):
+    if get_config()["advanced"]["saveTrainData"]:
+        label = export_result_to_dataset(results, image)
+        if check_eula():
+            try:
+                multiprocessing.Process(
+                    target=gh_upload_dataset, args=(image, label,)).start()
+            except:
+                log("Failed to upload dataset to GitHub", "ERROR")
+
+
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
+
     error_label, filepath_label = None, None
     filepath = ""
-    multiprocessing.freeze_support()
     stop_event = multiprocessing.Event()
     debugger("Main thread started")
     page_stat = "launch"
@@ -635,6 +653,7 @@ if __name__ == "__main__":
     segment_running = multiprocessing.Value(ctypes.c_bool, False)
     announcement = generate_announcement(
         get_config()["advanced"]["skipUpdate"])
+
     if not get_config()["advanced"]["skipUpdate"]:
         update_models()
     else:
@@ -681,6 +700,7 @@ if __name__ == "__main__":
         root.tk.call('tk', 'scaling', ScaleFactor/75)
         sv_ttk.set_theme(theme)
         apply_theme_to_titlebar(root)
+        show_share_warn()
 
         root.mainloop()
 
