@@ -2,8 +2,8 @@ import base64
 ASSET_REPO = "Shiny-Ladybug/assets"
 PROJECT_REPO = "Shiny-Ladybug/florr-auto-afk"
 DATASET_REPO = "Shiny-Ladybug/florr-afk"
-VERSION_INFO = "1.2.6"
-VERSION_TYPE = "Release"
+VERSION_INFO = "1.2.7"
+VERSION_TYPE = "Dev"
 assert VERSION_TYPE in ["Release", "Pre-Release", "Dev"]
 SUB_VERSION = "0"
 RELEASE_DATE = "2025-05-18 15:13:04"
@@ -13,6 +13,7 @@ GITHUB_TOKEN = GITHUB_TOKEN_BASE64
 for i in range(3):
     GITHUB_TOKEN = base64.b64decode(GITHUB_TOKEN).decode("utf-8").strip()
 CHANGELOG = {
+    "1.2.7": ["performance improvement"],
     "1.2.6": ["auto-upload dataset to GitHub",
               "object oriented for AFK_Segment and AFK_Path"],
     "1.2.5": ["fix starting point issue",

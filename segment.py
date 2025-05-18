@@ -92,8 +92,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
             image = cv2.cvtColor(
                 np.array(image), cv2.COLOR_RGB2BGR)
             ori_image = image.copy()
-            multiprocessing.Process(
-                target=try_locate_ready, args=(ori_image,)).start()
+            try_locate_ready(ori_image)
             position = detect_afk(image, afk_det_model)
             if position is None:
                 debugger("No AFK window found")
@@ -144,8 +143,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 image = cv2.cvtColor(
                     np.array(image), cv2.COLOR_RGBA2RGB)
                 ori_image = image.copy()
-                multiprocessing.Process(
-                    target=try_locate_ready, args=(ori_image,)).start()
+                try_locate_ready(ori_image)
                 position = detect_afk(image, afk_det_model)
                 if position is None:
                     results.append(False)
