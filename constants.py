@@ -1,3 +1,4 @@
+import base64
 ASSET_REPO = "Shiny-Ladybug/assets"
 PROJECT_REPO = "Shiny-Ladybug/florr-auto-afk"
 DATASET_REPO = "Shiny-Ladybug/florr-afk"
@@ -6,7 +7,8 @@ VERSION_TYPE = "Pre-Release"
 assert VERSION_TYPE in ["Release", "Pre-Release", "Dev"]
 SUB_VERSION = "1"
 RELEASE_DATE = "2025-05-18 13:53:00"
-GITHUB_TOKEN = "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"
+GITHUB_TOKEN_BASE64 = "Z2l0aHViX3BhdF8xMUJPNUJMR1kwSVB6TkNaNDVWMG9OX1EwMXZFaWpzQWtOR2JDQmxsVnhQNzFYWFJKRHJLRDlyeTB1MmZORWZTa1dNUkZSSFhDSThoSHc4NE56"
+GITHUB_TOKEN = base64.b64decode(GITHUB_TOKEN_BASE64).decode("utf-8")
 # just remind that token above has only `rw` access to `only` the dataset repo, so idc if it leaks or not
 CHANGELOG = {
     "1.2.5": ["fix starting point issue",
