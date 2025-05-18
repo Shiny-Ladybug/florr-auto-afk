@@ -4,7 +4,7 @@ from matplotlib import use
 import cv2
 import pyautogui
 from psutil import Process, virtual_memory, cpu_freq
-from json import load, dump
+from json import load, dump, dumps
 from sys import _getframe, getwindowsversion
 from os import path, mkdir, system, remove, listdir
 import numpy as np
@@ -12,19 +12,17 @@ from datetime import datetime
 from time import sleep, time, localtime
 from rich.console import Console
 from scipy.spatial import distance
-from re import match
 from rdp import rdp
 from traceback import print_exc
 import constants
 import torch
-import json
 from scipy.ndimage import distance_transform_edt
 from skimage.morphology import skeletonize as skimage_skeletonize
 from capture import wgc, bitblt
 from ultralytics import YOLO
 from tarfile import open as tar_open
 from github import Github
-import uuid
+from uuid import uuid4
 
 console = Console()
 
@@ -762,12 +760,12 @@ def gh_upload_file(repo, target_path, content, message):
 def gh_upload_dataset(image, label):
     g = Github(constants.GITHUB_TOKEN)
     repo = g.get_repo(constants.DATASET_REPO)
-    alias = str(uuid.uuid4()).replace("-", "")
+    alias = str(uuid4()).replace("-", "")
     date = datetime.now().strftime("%Y-%m-%dT%H_%M_%SZ")
     _, img_encoded = cv2.imencode('.png', image)
     img_bytes = img_encoded.tobytes()
-    label_bytes = json.dumps(label, ensure_ascii=False,
-                             indent=2).encode('utf-8')
+    label_bytes = dumps(label, ensure_ascii=False,
+                        indent=2).encode('utf-8')
     gh_upload_file(repo, f"./{alias}/{alias}.png",
                    img_bytes, f"{date} {alias[:5]} Image")
     gh_upload_file(repo, f"./{alias}/{alias}.json",

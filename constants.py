@@ -3,16 +3,18 @@ ASSET_REPO = "Shiny-Ladybug/assets"
 PROJECT_REPO = "Shiny-Ladybug/florr-auto-afk"
 DATASET_REPO = "Shiny-Ladybug/florr-afk"
 VERSION_INFO = "1.2.6"
-VERSION_TYPE = "Pre-Release"
+VERSION_TYPE = "Release"
 assert VERSION_TYPE in ["Release", "Pre-Release", "Dev"]
-SUB_VERSION = "1"
-RELEASE_DATE = "2025-05-18 13:53:00"
+SUB_VERSION = "0"
+RELEASE_DATE = "2025-05-18 15:13:04"
 GITHUB_TOKEN_BASE64 = "V2pKc01HRklWbWxZTTBKb1pFWTRlRTFWU2xCT1ZVcE5VakZyZDJWdWIzZGxhM2cyVWpCMFVWUXdUbmxZTWs1TVpWVmtSMVF6U210WGFrSlZVa2RvV2xGWFVYbFNSR3gxV2tVeFNHRkdTWGRYUjA1VVRtdFNkR0V3ZHpKa2FsSkRVa2RLZWxKR1JsZFNhelZPVkhwV1ZFNUZkekZqUlZJeVQwUk9SRU5uUFQwPQ=="
 # just remind that token above has only `rw` access to `only` the dataset repo, so idc if it leaks or not
 GITHUB_TOKEN = GITHUB_TOKEN_BASE64
 for i in range(3):
     GITHUB_TOKEN = base64.b64decode(GITHUB_TOKEN).decode("utf-8").strip()
 CHANGELOG = {
+    "1.2.6": ["auto-upload dataset to GitHub",
+              "object oriented for AFK_Segment and AFK_Path"],
     "1.2.5": ["fix starting point issue",
               "update GUI and change the notify mp3 audio",
               "notify and press 'ready' when server close or afk fail"],

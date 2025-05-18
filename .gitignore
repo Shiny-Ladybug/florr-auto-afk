@@ -13,6 +13,8 @@ images/
 test/
 train/
 eula.txt
+saves/
+outputs/
 
 # Distribution / packaging
 .Python

@@ -1,6 +1,5 @@
 from gui_utils import *
 import multiprocessing
-import copy
 
 
 def try_locate_ready(img):
@@ -197,8 +196,8 @@ def execute_afk(position, ori_image, image, afk_seg_model, suppress_idle_detecti
     start_p, end_p, window_pos, start_size = position
     mask, results = res
 
-    results_ = copy.deepcopy(results)
-    image_ = copy.deepcopy(image)
+    results_ = deepcopy(results)
+    image_ = deepcopy(image)
     threading_save(image_, results_)
     if start_p is None:
         log_ret("No start point found, going for AUTO prediction",

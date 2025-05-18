@@ -12,6 +12,7 @@ from capture import bitblt, wgc
 from segment_utils import *
 from win11toast import toast
 from playsound import playsound
+from copy import deepcopy
 import sv_ttk
 import imghdr
 import psutil
