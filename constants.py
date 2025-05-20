@@ -13,7 +13,8 @@ GITHUB_TOKEN = GITHUB_TOKEN_BASE64
 for i in range(3):
     GITHUB_TOKEN = base64.b64decode(GITHUB_TOKEN).decode("utf-8").strip()
 CHANGELOG = {
-    "1.2.7": ["performance improvement"],
+    "1.2.7": ["performance improvement",
+              "runtime error fix for paths with no end detected"],
     "1.2.6": ["auto-upload dataset to GitHub",
               "object oriented for AFK_Segment and AFK_Path"],
     "1.2.5": ["fix starting point issue",

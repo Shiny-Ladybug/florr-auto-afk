@@ -703,9 +703,6 @@ def threading_save(image, results):
 
 
 if __name__ == "__main__":
-    start_test_debug("D:\AutoPlayer\Images\\new_afk_check\Test6.PNG")
-    import sys
-    sys.exit()
     multiprocessing.freeze_support()
 
     error_label, filepath_label = None, None
