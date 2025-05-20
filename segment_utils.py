@@ -278,6 +278,7 @@ class AFK_Path:
                     unused.remove(next_point)
                     current_point = next_point
                 truncated_points = sorted_points
+                self.sorted_points = truncated_points[::-1]
                 self.sorted = True
             else:
                 self.sorted_points = self.raw_points

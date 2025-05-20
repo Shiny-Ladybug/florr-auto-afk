@@ -410,6 +410,69 @@ def start_test(frame, file_path: str):
 
     save_test_image(ori_image, "afk_solution", test_time)
 
+def start_test_debug(file_path: str):
+    # A debugging function for developer to test the YOLO model without loading the GUI
+    test_time = int(time())
+    if not file_path or file_path == "\n":
+        raise FileNotFoundError
+    try:
+        if not (file_path.lower().endswith(".png") or file_path.lower().endswith(".jpg") or file_path.lower().endswith(".jpeg")):
+            raise FileNotFoundError
+        image = cv2.imread(file_path)
+        img_type = imghdr.what(file_path)
+        if img_type != "png" and img_type != "jpeg":
+            raise FileNotFoundError
+    except FileNotFoundError:
+        print("File not found")
+        return
+    try:
+        afk_seg_model = YOLO(get_config()["yoloConfig"]["segModel"])
+        afk_det_model = YOLO(get_config()["yoloConfig"]["detModel"])
+    except:
+        remove(get_config()["yoloConfig"]["segModel"])
+        remove(get_config()["yoloConfig"]["detModel"])
+        remove("./models/version")
+        print("Failed to load YOLO models")
+        return
+    ori_image = image.copy()
+    position = detect_afk(image, afk_det_model,
+                          caller="test", test_time=test_time)
+    if position is None:
+        print("Test result: No AFK window found")
+        return
+    start_p, end_p, window_pos, start_size = position
+    print(f"Test result: Found AFK window, results saved to ./test/{test_time}")
+    cropped_image = crop_image(
+        window_pos[0], window_pos[1], image)
+    res = get_masks_by_iou(cropped_image, afk_seg_model)
+    if res is None:
+        save_test_image(image, "mask_err", test_time)
+        return
+    mask, results = res
+    afk_mask = AFK_Segment(image, mask, start_p, end_p, start_size)
+    if start_p is not None:
+        afk_mask.save_start()
+
+    if get_config()["advanced"]["saveYOLOImage"]:
+        mask_image = cropped_image.copy()
+        mask_ = mask.cpu().numpy()
+        mask_ = cv2.resize(mask_, (mask_image.shape[1], mask_image.shape[0]))
+        mask_colored = np.stack(
+            [mask_ * 255, mask_ * 0, mask_ * 0], axis=-1).astype(np.uint8)
+        overlay = cv2.addWeighted(mask_image, 0.7, mask_colored, 0.3, 0)
+        save_test_image(overlay, "yolo_seg", test_time)
+
+    afk_path = AFK_Path(afk_mask.segment_path(), start_p, end_p)
+    afk_path.sort(afk_mask.get_width())
+    afk_path.rdp(get_config()["advanced"]["rdpEpsilon"])
+    afk_path.extend(get_config()["advanced"]["extendLength"])
+    line = afk_path.get_final(window_pos[0], precise=False)
+
+    ori_image = draw_annotated_image(
+        ori_image, line, start_p, end_p, window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length())
+
+    save_test_image(ori_image, "afk_solution", test_time)
+
 
 def destroy_label():
     global error_label
@@ -640,6 +703,9 @@ def threading_save(image, results):
 
 
 if __name__ == "__main__":
+    start_test_debug("D:\AutoPlayer\Images\\new_afk_check\Test6.PNG")
+    import sys
+    sys.exit()
     multiprocessing.freeze_support()
 
     error_label, filepath_label = None, None
