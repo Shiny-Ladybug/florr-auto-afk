@@ -8,7 +8,6 @@ from darkdetect import theme as detect_theme
 from sys import argv
 from win32process import GetWindowThreadProcessId
 from random import choices
-from capture import bitblt, wgc
 from segment_utils import *
 from win11toast import toast
 from playsound import playsound
@@ -25,14 +24,17 @@ config = get_config()
 capture_windows = []
 
 
-theme = detect_theme() if get_config(
-)["gui"]["theme"] == "auto" else ("Dark" if get_config()["gui"]["theme"].lower() == "dark" else "Light")
+def get_theme():
+    return detect_theme() if get_config(
+    )["gui"]["theme"] == "auto" else ("Dark" if get_config()["gui"]["theme"].lower() == "dark" else "Light")
+
+
+theme = get_theme()
 
 
 def apply_theme_to_titlebar(root):
     version = getwindowsversion()
-    theme = detect_theme() if get_config(
-    )["gui"]["theme"] == "auto" else ("Dark" if get_config()["gui"]["theme"].lower() == "dark" else "Light")
+    theme = get_theme()
 
     if version.major == 10 and version.build >= 22000:
         pywinstyles.change_header_color(
@@ -586,6 +588,8 @@ def open_capture_window(root, main_content):
         try:
             if capture_method.get() == "BitBlt":
                 frame = bitblt.bitblt_capture(hwnd)
+            elif capture_method.get() == "GDI":
+                frame = gdi.gdi_capture(hwnd)
             elif capture_method.get() == "Windows Graphics Capture":
                 frame = wgc.wgc_capture(hwnd)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2RGBA)
@@ -603,7 +607,10 @@ def open_capture_window(root, main_content):
         create_window.after(1000, update_preview)
     create_window = tk.Toplevel(root)
     create_window.title(get_ui_translation("capture_winname"))
-    create_window.iconbitmap("./gui/icon.ico")
+    if get_theme() == "Dark":
+        create_window.iconbitmap("./gui/dark.ico")
+    else:
+        create_window.iconbitmap("./gui/icon.ico")
     create_window.geometry("1000x600")
     create_window.resizable(False, False)
     preview_label = ttk.Label(
@@ -638,11 +645,11 @@ def open_capture_window(root, main_content):
     capture_method_label = ttk.Label(
         capture_method_frame, text=get_ui_translation("capture_method"), font=("Microsoft Yahei", 12))
     capture_method_label.pack(side="left", padx=10)
-    capture_method = tk.StringVar(value="Windows Graphics Capture")
+    capture_method = tk.StringVar(value="GDI")
     capture_method_selector = ttk.Combobox(
         capture_method_frame,
         textvariable=capture_method,
-        values=["Windows Graphics Capture", "BitBlt"],
+        values=["Windows Graphics Capture", "BitBlt", "GDI"],
         state="readonly",
         font=("Microsoft Yahei", 12),
     )
@@ -680,6 +687,8 @@ def add_window_hook(title, capture_method, create_window, main_content):
             return
     if capture_method == "BitBlt":
         thumbnail = bitblt.bitblt_capture(hwnd)
+    elif capture_method == "GDI":
+        thumbnail = gdi.gdi_capture(hwnd)
     elif capture_method == "Windows Graphics Capture":
         thumbnail = wgc.wgc_capture(hwnd)
     window = {
@@ -770,7 +779,7 @@ def get_random_background():
 
 
 def save_eula(shared: bool):
-    message = f'This file is generated automantically at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ({int(time())}).\nBy setting `share` to yes, dataset will upload to remote repository (https://github.com/Shiny-Ladybug/florr-afk).\nshare={"yes" if shared else "no"}'
+    message = f'This file is generated automatically at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ({int(time())}).\nBy setting `share` to yes, dataset will upload to remote repository (https://github.com/Shiny-Ladybug/florr-afk).\nshare={"yes" if shared else "no"}'
     with open("./eula.txt", "w") as f:
         f.write(message)
 

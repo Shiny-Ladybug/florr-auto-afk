@@ -102,7 +102,8 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 if countdown != -1 and time() > eta_timestamp:
                     log_ret("Countdown Ends, program exiting", "EVENT")
                     break
-                sleep(max(0, get_config()["advanced"]["epochInterval"] - (time() - start_time)))
+                sleep(
+                    max(0, get_config()["advanced"]["epochInterval"] - (time() - start_time)))
                 continue
             log_ret("Found AFK window", "EVENT", shared_logger)
             debugger("Found AFK window")
@@ -139,6 +140,8 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
             for window in capture_windows:
                 if window["capture_method"] == "BitBlt":
                     image = bitblt.bitblt_capture(window["hwnd"])
+                elif window["capture_method"] == "GDI":
+                    image = gdi.gdi_capture(window["hwnd"])
                 elif window["capture_method"] == "Windows Graphics Capture":
                     image = wgc.wgc_capture(window["hwnd"])
                 image = cv2.cvtColor(
@@ -182,7 +185,8 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 if countdown != -1 and time() > eta_timestamp:
                     log_ret("Countdown Ends, program exiting", "EVENT")
                     break
-                sleep(max(0, get_config()["advanced"]["epochInterval"] - (time() - start_time)))
+                sleep(
+                    max(0, get_config()["advanced"]["epochInterval"] - (time() - start_time)))
                 continue
 
 
@@ -220,14 +224,15 @@ def execute_afk(position, ori_image, image, afk_seg_model, suppress_idle_detecti
 
     log_ret("Using yolo to bypass AFK", "EVENT", shared_logger)
 
-    afk_path = AFK_Path(afk_mask.segment_path(), start_p, end_p)
-    afk_path.sort(afk_mask.get_width())
+    afk_path = AFK_Path(afk_mask.segment_path(), start_p,
+                        end_p, afk_mask.get_width())
+    afk_path.sort()
     afk_path.rdp(get_config()["advanced"]["rdpEpsilon"])
     afk_path.extend(get_config()["advanced"]["extendLength"])
     line = afk_path.get_final(window_pos[0], precise=False)
 
     ori_image = draw_annotated_image(
-        ori_image, line, start_p, end_p, window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length())
+        ori_image, line, start_p, end_p, window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length(), afk_path.get_difficulty())
 
     save_image(ori_image, "afk_solution", "afk")
 
@@ -399,77 +404,15 @@ def start_test(frame, file_path: str):
         overlay = cv2.addWeighted(mask_image, 0.7, mask_colored, 0.3, 0)
         save_test_image(overlay, "yolo_seg", test_time)
 
-    afk_path = AFK_Path(afk_mask.segment_path(), start_p, end_p)
-    afk_path.sort(afk_mask.get_width())
+    afk_path = AFK_Path(afk_mask.segment_path(), start_p,
+                        end_p, afk_mask.get_width())
+    afk_path.sort()
     afk_path.rdp(get_config()["advanced"]["rdpEpsilon"])
     afk_path.extend(get_config()["advanced"]["extendLength"])
     line = afk_path.get_final(window_pos[0], precise=False)
 
     ori_image = draw_annotated_image(
-        ori_image, line, start_p, end_p, window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length())
-
-    save_test_image(ori_image, "afk_solution", test_time)
-
-def start_test_debug(file_path: str):
-    # A debugging function for developer to test the YOLO model without loading the GUI
-    test_time = int(time())
-    if not file_path or file_path == "\n":
-        raise FileNotFoundError
-    try:
-        if not (file_path.lower().endswith(".png") or file_path.lower().endswith(".jpg") or file_path.lower().endswith(".jpeg")):
-            raise FileNotFoundError
-        image = cv2.imread(file_path)
-        img_type = imghdr.what(file_path)
-        if img_type != "png" and img_type != "jpeg":
-            raise FileNotFoundError
-    except FileNotFoundError:
-        print("File not found")
-        return
-    try:
-        afk_seg_model = YOLO(get_config()["yoloConfig"]["segModel"])
-        afk_det_model = YOLO(get_config()["yoloConfig"]["detModel"])
-    except:
-        remove(get_config()["yoloConfig"]["segModel"])
-        remove(get_config()["yoloConfig"]["detModel"])
-        remove("./models/version")
-        print("Failed to load YOLO models")
-        return
-    ori_image = image.copy()
-    position = detect_afk(image, afk_det_model,
-                          caller="test", test_time=test_time)
-    if position is None:
-        print("Test result: No AFK window found")
-        return
-    start_p, end_p, window_pos, start_size = position
-    print(f"Test result: Found AFK window, results saved to ./test/{test_time}")
-    cropped_image = crop_image(
-        window_pos[0], window_pos[1], image)
-    res = get_masks_by_iou(cropped_image, afk_seg_model)
-    if res is None:
-        save_test_image(image, "mask_err", test_time)
-        return
-    mask, results = res
-    afk_mask = AFK_Segment(image, mask, start_p, end_p, start_size)
-    if start_p is not None:
-        afk_mask.save_start()
-
-    if get_config()["advanced"]["saveYOLOImage"]:
-        mask_image = cropped_image.copy()
-        mask_ = mask.cpu().numpy()
-        mask_ = cv2.resize(mask_, (mask_image.shape[1], mask_image.shape[0]))
-        mask_colored = np.stack(
-            [mask_ * 255, mask_ * 0, mask_ * 0], axis=-1).astype(np.uint8)
-        overlay = cv2.addWeighted(mask_image, 0.7, mask_colored, 0.3, 0)
-        save_test_image(overlay, "yolo_seg", test_time)
-
-    afk_path = AFK_Path(afk_mask.segment_path(), start_p, end_p)
-    afk_path.sort(afk_mask.get_width())
-    afk_path.rdp(get_config()["advanced"]["rdpEpsilon"])
-    afk_path.extend(get_config()["advanced"]["extendLength"])
-    line = afk_path.get_final(window_pos[0], precise=False)
-
-    ori_image = draw_annotated_image(
-        ori_image, line, start_p, end_p, window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length())
+        ori_image, line, start_p, end_p, window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length(), afk_path.get_difficulty())
 
     save_test_image(ori_image, "afk_solution", test_time)
 
@@ -483,8 +426,7 @@ def destroy_label():
 
 def show_label(frame, text, color="base"):
     global error_label
-    theme = detect_theme() if get_config(
-    )["gui"]["theme"] == "auto" else ("Dark" if get_config()["gui"]["theme"].lower() == "dark" else "Light")
+    theme = get_theme()
     destroy_label()
     if color == "base":
         if theme == "Dark":
@@ -512,8 +454,7 @@ def choose_file(frame):
 def update_page(new_page_stat):
     global page_stat, console_text, capture_windows
     debugger(f"Updating page to {new_page_stat}")
-    theme = detect_theme() if get_config(
-    )["gui"]["theme"] == "auto" else ("Dark" if get_config()["gui"]["theme"].lower() == "dark" else "Light")
+    theme = get_theme()
     page_stat = new_page_stat
     for widget in main_content.winfo_children():
         widget.destroy()
@@ -729,7 +670,10 @@ if __name__ == "__main__":
         shared_logger = manager.list()
         root = tk.Tk()
         root.title(f"florr-auto-afk (v{version})")
-        root.iconbitmap("./gui/icon.ico")
+        if get_theme() == "Dark":
+            root.iconbitmap("./gui/dark.ico")
+        else:
+            root.iconbitmap("./gui/icon.ico")
         root.geometry("1000x600")
         root.minsize(1000, 600)
         sidebar = ttk.Frame(root, width=150)

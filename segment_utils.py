@@ -9,16 +9,15 @@ from sys import _getframe, getwindowsversion
 from os import path, mkdir, system, remove, listdir
 import numpy as np
 from datetime import datetime
-from time import sleep, time, localtime
+from time import sleep, time
 from rich.console import Console
-from scipy.spatial import distance
+from scipy.spatial import distance, KDTree
 from rdp import rdp
-from traceback import print_exc
 import constants
 import torch
 from scipy.ndimage import distance_transform_edt
 from skimage.morphology import skeletonize as skimage_skeletonize
-from capture import wgc, bitblt
+from capture import gdi, bitblt, wgc
 from ultralytics import YOLO
 from tarfile import open as tar_open
 from github import Github
@@ -226,7 +225,7 @@ def check_update():
 
 
 class AFK_Path:
-    def __init__(self, raw_points: list[tuple[int, int]], start_p=None, end_p=None) -> None:
+    def __init__(self, raw_points: list[tuple[int, int]], start_p=None, end_p=None, width=None) -> None:
         self.raw_points: list[tuple[int, int]] = raw_points
         self.start_p: tuple[int, int] = start_p
         self.end_p: tuple[int, int] = end_p
@@ -236,10 +235,12 @@ class AFK_Path:
         self.sorted: bool = False
         self.sorted_points: list[tuple[int, int]] = None
         self.length: float = None
+        self.difficulty: float = None
+        self.width: float = width
 
-    def sort(self, width=20) -> None:
-        if width is None or width <= 0:
-            width = 20
+    def sort(self) -> None:
+        if self.width is None or self.width <= 0:
+            self.width = 20
         if self.end_p is not None:
             unused = set(self.raw_points)
             sorted_points = []
@@ -255,7 +256,7 @@ class AFK_Path:
                 dist = last_dist = float("inf")
                 for point in sorted_points:
                     dist = distance.euclidean(point, self.start_p)
-                    if not ((dist > last_dist) and (dist < width/2)):
+                    if not ((dist > last_dist) and (dist < self.width/2)):
                         truncated_points.append(point)
                         last_dist = dist
                     else:
@@ -290,11 +291,15 @@ class AFK_Path:
                     self.sorted_points, epsilon=epsilon)
                 self.rdp_ed = True
         else:
-            raise ValueError(
-                "Path is not sorted. Please sort the path before applying RDP.")
+            if not self.rdp_points:
+                self.rdp_points = rdp(self.raw_points, epsilon=epsilon)
+                self.rdp_ed = True
 
     def extend(self, length) -> None:
         if self.rdp_ed:
+            if len(self.rdp_points) < 2:
+                self.extend_point = self.rdp_points[0]
+                return
             end = self.rdp_points[-1]
             last = self.rdp_points[-2]
             l_l2_dist = distance.euclidean(end, last)
@@ -353,6 +358,20 @@ class AFK_Path:
             raise ValueError(
                 "Path is not sorted. Please sort the path before getting length.")
 
+    def get_difficulty(self, density_r=50) -> float:
+        if self.difficulty is not None:
+            return self.difficulty
+        if self.rdp_points:
+            points = np.array(self.rdp_points)
+            tree = KDTree(points)
+            neighbors = tree.query_ball_point(points, r=density_r)
+            counts = np.array([len(n)-1 for n in neighbors])
+            density = np.mean(counts)
+            lwr = self.get_length()/self.width
+            self.difficulty = (max(1, density*3)*lwr *
+                               (len(self.rdp_points)**0.5))**0.5
+            return self.difficulty
+
 
 class AFK_Segment:
     def __init__(self, afk_window_image: cv2.Mat, mask: torch.Tensor, start: tuple[int, int], end: tuple[int, int], start_size: int) -> None:
@@ -363,10 +382,14 @@ class AFK_Segment:
         self.width = None
         self.start_size = start_size
         self.segmented_path = None
-        self.start_color = tuple(int(i) for i in tuple(
-            afk_window_image[int(start[1]), int(start[0])]))
-        self.inverse_start_color = tuple(int(i) for i in tuple(
-            255 - afk_window_image[int(start[1]), int(start[0])]))
+        if start is not None:
+            self.start_color = tuple(int(i) for i in tuple(
+                afk_window_image[int(start[1]), int(start[0])]))
+            self.inverse_start_color = tuple(int(i) for i in tuple(
+                255 - afk_window_image[int(start[1]), int(start[0])]))
+        else:
+            self.start_color = (0, 0, 0)
+            self.inverse_start_color = (255, 255, 255)
 
     def save_start(self) -> None:
         if self.mask.ndim == 2:
@@ -592,10 +615,12 @@ def exposure_image(left_top_bound, right_bottom_bound, duration, hwnd=None, capt
             screenshot = pyautogui.screenshot(region=region)
             screenshot = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
         else:
-            if capture_method == "Windows Graphics Capture":
-                screenshot = wgc.wgc_capture(hwnd)
+            if capture_method == "GDI":
+                screenshot = gdi.gdi_capture(hwnd)
             elif capture_method == "BitBlt":
                 screenshot = bitblt.bitblt_capture(hwnd)
+            elif capture_method == "Windows Graphics Capture":
+                screenshot = wgc.wgc_capture(hwnd)
             screenshot = crop_image(
                 left_top_bound, right_bottom_bound, screenshot)
             screenshot = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGBA2RGB)
@@ -605,7 +630,7 @@ def exposure_image(left_top_bound, right_bottom_bound, duration, hwnd=None, capt
 
 
 def calculate_offset(path, hwnd):
-    rect = wgc.get_fixed_window_rect(hwnd)
+    rect = gdi.get_fixed_window_rect(hwnd)
     return [(p[0] + rect[0], p[1] + rect[1]) for p in path]
 
 
@@ -702,7 +727,7 @@ def check_config(shared_logger):
                 "WARNING", shared_logger, save=False)
 
 
-def draw_annotated_image(ori_image, line, start_p, end_p, window_pos, start_color, path_width, path_length) -> cv2.Mat:
+def draw_annotated_image(ori_image, line, start_p, end_p, window_pos, start_color, path_width, path_length, difficulty) -> cv2.Mat:
     image = ori_image.copy()
     for point in line:
         cv2.circle(image, point, 3, (255, 0, 0), -1)
@@ -735,6 +760,8 @@ def draw_annotated_image(ori_image, line, start_p, end_p, window_pos, start_colo
     cv2.line(image, p2, (p2[0]-corner_len, p2[1]), (0, 0, 255), 2)
     cv2.line(image, p2, (p2[0], p2[1]-corner_len), (0, 0, 255), 2)
 
+    cv2.putText(image, f'Difficulty: {round(difficulty*100)/100}', (window_pos[0][0]+10, window_pos[1][1]-28), cv2.FONT_HERSHEY_SIMPLEX,
+                0.5, (255, 255, 255))
     cv2.putText(image, f'P_w: {round(path_width*100)/100}, P_l: {round(path_length*100)/100}', (window_pos[0][0]+10, window_pos[1][1]-10), cv2.FONT_HERSHEY_SIMPLEX,
                 0.5, (255, 255, 255))
     return image

@@ -1,4 +1,4 @@
-# florr auto afk (v1.2.6) (2025-05-18 AFK-Pathing Update)
+# florr auto afk (v1.2.7) (2025-05-23 Update)
 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Shiny-Ladybug/florr-auto-afk/build-python.yml?style=for-the-badge)![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/Shiny-Ladybug/florr-auto-afk?style=for-the-badge)![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Shiny-Ladybug/florr-auto-afk/total?style=for-the-badge)![GitHub Release](https://img.shields.io/github/v/release/Shiny-Ladybug/florr-auto-afk?style=for-the-badge)
 
@@ -125,6 +125,14 @@ Now those stupid codes go under the `onnx` branch.
 
 ![img](./imgs/gallery.png)
 
+## Difficulty
+
+I do rank those AFK Checks so that I can do sorts easily
+
+$$D = \sqrt{ \max\left(1,\; 3P_{density}\right) \cdot \left( \frac{P_{l}}{P_{w}} \right) \cdot \sqrt{N_{p}} }$$
+
+The density using `KDTree` to count the neighbor points
+
 ## How it works
 
 1. Use PaddleOCR to detect if the screen contains "AFK Check" (deprecated as m28 could send a window containing no "AFK Check" text)
@@ -152,7 +160,7 @@ Now those stupid codes go under the `onnx` branch.
                }
                prototype.fillText.toString = () => 'function toString() { [native code] }';
            }
-
+   
        }
    ```
 
