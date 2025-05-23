@@ -129,7 +129,9 @@ Now those stupid codes go under the `onnx` branch.
 
 I do rank those AFK Checks so that I can do sorts easily
 
-$$D = \sqrt{ \max\left(1,\; 3P_{density}\right) \cdot \left( \frac{P_{l}}{P_{w}} \right) \cdot \sqrt{N_{p}} }$$
+$$
+D = \sqrt{ \max\left(1, 3 * P_{density}\right) \cdot \left( \frac{P_{l}}{P_{w}} \right) \cdot \sqrt{N_{p}} }
+$$
 
 The density using `KDTree` to count the neighbor points
 
@@ -160,7 +162,7 @@ The density using `KDTree` to count the neighbor points
                }
                prototype.fillText.toString = () => 'function toString() { [native code] }';
            }
-   
+
        }
    ```
 
