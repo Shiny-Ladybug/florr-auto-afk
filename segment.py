@@ -2,22 +2,32 @@ from gui_utils import *
 import multiprocessing
 
 
-def try_locate_ready(img):
-    ready = Image.open("models/assets/Ready.PNG")
-    try:
-        box = pyautogui.locate(ready, img, grayscale=False, confidence=0.8)
-        if box is not None:
-            multiprocessing.Process(
-                target=send_notification, args=("AFK Detection Failed",)).start()
-            multiprocessing.Process(
-                target=send_sound_notification, args=(3,)).start()
-            log_ret("AFK Detection Failed", "EVENT", shared_logger)
-            debugger("AFK Detection Failed")
-            pyautogui.moveTo(box.left + box.width / 2,
-                             box.top + box.height / 2)
-            pyautogui.click()
-    except:
-        pass
+def try_locate_ready(img, shared_logger):
+    ready = cv2.imread("./models/assets/Ready.PNG")
+    screenshot = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
+    found = None
+    for scale in np.linspace(0.5, 1.5, 20)[::-1]:
+        resized = cv2.resize(ready, (0, 0), fx=scale, fy=scale)
+        if resized.shape[0] > screenshot.shape[0] or resized.shape[1] > screenshot.shape[1]:
+            continue
+        result = cv2.matchTemplate(screenshot, resized, cv2.TM_CCOEFF_NORMED)
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+        if found is None or max_val > found[0]:
+            found = (max_val, max_loc, resized.shape[:2])
+
+    if found and found[0] >= 0.5:
+        multiprocessing.Process(
+            target=send_notification, args=("AFK Detection Failed",)).start()
+        multiprocessing.Process(
+            target=send_sound_notification, args=(3,)).start()
+        log_ret("AFK Detection Failed", "EVENT", shared_logger)
+        debugger("AFK Detection Failed")
+        max_val, max_loc, (h, w) = found
+        center_x = max_loc[0] + w // 2
+        center_y = max_loc[1] + h // 2
+        pyautogui.moveTo(center_x, center_y)
+        pyautogui.click()
 
 
 def test_idle_thread(idled_flag, suppress_idle_detection, shared_logger, not_stop_event):
@@ -93,7 +103,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
             image = cv2.cvtColor(
                 np.array(image), cv2.COLOR_RGB2BGR)
             ori_image = image.copy()
-            try_locate_ready(ori_image)
+            try_locate_ready(ori_image, shared_logger)
             position = detect_afk(image, afk_det_model)
             if position is None:
                 debugger("No AFK window found")
@@ -147,7 +157,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 image = cv2.cvtColor(
                     np.array(image), cv2.COLOR_RGBA2RGB)
                 ori_image = image.copy()
-                try_locate_ready(ori_image)
+                try_locate_ready(ori_image, shared_logger)
                 position = detect_afk(image, afk_det_model)
                 if position is None:
                     results.append(False)
@@ -227,7 +237,8 @@ def execute_afk(position, ori_image, image, afk_seg_model, suppress_idle_detecti
     afk_path = AFK_Path(afk_mask.segment_path(), start_p,
                         end_p, afk_mask.get_width())
     afk_path.sort()
-    afk_path.rdp(get_config()["advanced"]["rdpEpsilon"])
+    afk_path.rdp(round(eval(get_config()["advanced"]["rdpEpsilon"].replace(
+        "width", str(afk_mask.get_width())))))
     afk_path.extend(get_config()["advanced"]["extendLength"])
     line = afk_path.get_final(window_pos[0], precise=False)
 
@@ -407,7 +418,8 @@ def start_test(frame, file_path: str):
     afk_path = AFK_Path(afk_mask.segment_path(), start_p,
                         end_p, afk_mask.get_width())
     afk_path.sort()
-    afk_path.rdp(get_config()["advanced"]["rdpEpsilon"])
+    afk_path.rdp(round(eval(get_config()["advanced"]["rdpEpsilon"].replace(
+        "width", str(afk_mask.get_width())))))
     afk_path.extend(get_config()["advanced"]["extendLength"])
     line = afk_path.get_final(window_pos[0], precise=False)
 

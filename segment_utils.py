@@ -725,6 +725,12 @@ def check_config(shared_logger):
     if cpu_freq_ghz < 2.5:
         log_ret(f"Running on {cpu_freq_ghz:.2f}GHz CPU, slow exection Warning",
                 "WARNING", shared_logger, save=False)
+    try:
+        eval(config["advanced"]["rdpEpsilon"].replace("width", str(1)))
+    except Exception as e:
+        log_ret(f"Invalid RDP Epsilon Expression: {config['advanced']['rdpEpsilon']}",
+                "CRITICAL", shared_logger, save=False)
+        raise e
 
 
 def draw_annotated_image(ori_image, line, start_p, end_p, window_pos, start_color, path_width, path_length, difficulty) -> cv2.Mat:

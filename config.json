@@ -26,7 +26,7 @@
         "verbose": true,
         "epochInterval": 8,
         "optimizeQuantization": 1,
-        "rdpEpsilon": 5,
+        "rdpEpsilon": "0.2173913043478*width+0.4782608695652",
         "saveImage": true,
         "saveYOLOImage": true,
         "extendLength": 30,

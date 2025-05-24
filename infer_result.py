@@ -32,7 +32,8 @@ def inference(image):
     afk_path = AFK_Path(afk_mask.segment_path(), start_p,
                         end_p, afk_mask.get_width())
     afk_path.sort()
-    afk_path.rdp(get_config()["advanced"]["rdpEpsilon"])
+    afk_path.rdp(round(eval(get_config()["advanced"]["rdpEpsilon"].replace(
+        "width", str(afk_mask.get_width())))))
     afk_path.extend(get_config()["advanced"]["extendLength"])
     line = afk_path.get_final(precise=False)
     annotated_image = draw_annotated_image(
