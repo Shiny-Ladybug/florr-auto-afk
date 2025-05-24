@@ -590,7 +590,7 @@ def open_capture_window(root, main_content):
                 frame = bitblt.bitblt_capture(hwnd)
             elif capture_method.get() == "GDI":
                 frame = gdi.gdi_capture(hwnd)
-            elif capture_method.get() == "Windows Graphics Capture":
+            elif capture_method.get() == "WGC":
                 frame = wgc.wgc_capture(hwnd)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2RGBA)
             h, w = frame.shape[:2]
@@ -649,7 +649,7 @@ def open_capture_window(root, main_content):
     capture_method_selector = ttk.Combobox(
         capture_method_frame,
         textvariable=capture_method,
-        values=["Windows Graphics Capture", "BitBlt", "GDI"],
+        values=["WGC", "BitBlt", "GDI"],
         state="readonly",
         font=("Microsoft Yahei", 12),
     )
@@ -689,7 +689,7 @@ def add_window_hook(title, capture_method, create_window, main_content):
         thumbnail = bitblt.bitblt_capture(hwnd)
     elif capture_method == "GDI":
         thumbnail = gdi.gdi_capture(hwnd)
-    elif capture_method == "Windows Graphics Capture":
+    elif capture_method == "WGC":
         thumbnail = wgc.wgc_capture(hwnd)
     window = {
         "title": title,

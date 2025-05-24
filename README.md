@@ -1,6 +1,6 @@
 # florr auto afk (v1.2.7) (2025-05-23 Update)
 
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Shiny-Ladybug/florr-auto-afk/build-python.yml?style=for-the-badge)![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/Shiny-Ladybug/florr-auto-afk?style=for-the-badge)![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Shiny-Ladybug/florr-auto-afk/total?style=for-the-badge)![GitHub Release](https://img.shields.io/github/v/release/Shiny-Ladybug/florr-auto-afk?style=for-the-badge)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Shiny-Ladybug/florr-auto-afk/build-python.yml?style=for-the-badge) ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/Shiny-Ladybug/florr-auto-afk?style=for-the-badge) ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Shiny-Ladybug/florr-auto-afk/total?style=for-the-badge) ![GitHub Release](https://img.shields.io/github/v/release/Shiny-Ladybug/florr-auto-afk?style=for-the-badge)
 
 > As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
@@ -117,13 +117,29 @@ Now those stupid codes go under the `onnx` branch.
 
   As that exposure can nerf the mobs' movement effect and idle detection enables me to active (maybe kill supers) without quitting the program
 
-  ![exposure showcase](./imgs/exposure.jpg)
+  ![exposure showcase](./imgs/exposure.jpg "exposure showcase")
 
-  ![GUI Settings](./imgs/settings.png)
 
 ## Gallery
 
-![img](./imgs/gallery.png)
+Old model was trained on `4/30/2025` based on 107 instances with 698 epochs.
+
+New model was trained on `5/23/2025` based on 225 instances (192 train, 33 val) with 431 epochs.
+
+<center>
+<figure>
+<img src="./imgs/gallery-old.png" alt="4/30/2025 Model Results" style="zoom: 40%;"/>
+·
+·
+·
+<img src="./imgs/gallery-new.png" alt="4/30/2025 Model Gallery" style="zoom: 30%;"/>
+</figure>
+</center>
+
+
+![img](./imgs/results-old.png "4/30/2025 Model Results")
+
+![img](./imgs/results-new.png "5/24/2025 Model Results")
 
 ## Difficulty
 
@@ -137,53 +153,21 @@ The density using `KDTree` to count the neighbor points
 
 ## How it works
 
-1. Use PaddleOCR to detect if the screen contains "AFK Check" (deprecated as m28 could send a window containing no "AFK Check" text)
+1. Use `afk-det.pt` model to detect the AFK Check windows.
 
-   OCR model using `ch_pp_ocrv3`
+   The model contains 3 classes: `AFK_Window`, `Start`, `End`
 
-   I know that I can use a TamperMonkey script that rewrites the `canvas.FillText`
+   Model most recent updated on `4/30/2025`
 
-   ```js
-   function rewriteFillText() {
-           function getCompatibleCanvas() {
-               if (typeof (OffscreenCanvasRenderingContext2D) == 'undefined') {
-                   return [CanvasRenderingContext2D]
-               }
-               return [OffscreenCanvasRenderingContext2D, CanvasRenderingContext2D];
-           }
-           const idSymbol = Symbol('id');
-           for (const {prototype} of getCompatibleCanvas()) {
-               prototype[idSymbol] = prototype.fillText
-           }
-           for (const {prototype} of getCompatibleCanvas()) {
-               prototype.fillText = function (text, x, y) {
-                   // DO SOMETHING NASTY
-                   return this[idSymbol](text, x, y);
-               }
-               prototype.fillText.toString = () => 'function toString() { [native code] }';
-           }
+   Training for 632 epochs based on 107 instances.
+   
+2. Try to use the YOLO model `afk-seg`.pt to separate the AFK Path.
 
-       }
-   ```
+   Detailed Model Information go check [Model Gallery](##Gallery).
 
-   I can start a local HTTP API to see if I got checked.
+3. Use the `cv2.ximgproc.thinning()` method to get the skeletonized path.
 
-   For specified reasons, I do not recommend using internal scripts (for unknown BAN results). I'd like to do all these tasks in Python.
-
-   So I used a YOLO model `afk-det.pt` to detect the AFK Check windows.
-2. Trying to use the YOLO model `afk-seg`.pt to separate the mouse path.
-
-   ![results.png](./imgs/results.png)
-
-   Obviously, i got a good model for this.
-
-   After I get the contours, we can use the `cv2.ximgproc.thinning()` method to get the skeletonized path.
-3. Sometimes the yolo model cannot detect the possible results.
-
-   I use OpenCV as well to detect the path.
-
-   By using the Grey Style, we can define a specific `lower_bounds` and `upper_bounds` to get the path.
-4. Loop
+5. Loop
 
 ## FAQ
 

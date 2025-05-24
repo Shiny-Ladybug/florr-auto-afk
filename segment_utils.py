@@ -281,8 +281,17 @@ class AFK_Path:
                 self.sorted_points = sorted_points
                 self.sorted = True
             else:
-                self.sorted_points = self.raw_points
-                self.sorted = False
+                unused = set(self.raw_points)
+                sorted_points = []
+                current_point = self.raw_points[0]
+                while unused:
+                    next_point = min(
+                        unused, key=lambda p: distance.euclidean(current_point, p))
+                    sorted_points.append(next_point)
+                    unused.remove(next_point)
+                    current_point = next_point
+                self.sorted_points = sorted_points
+                self.sorted = True
 
     def rdp(self, epsilon=1) -> None:
         if self.sorted:
@@ -588,7 +597,7 @@ def detect_afk(img, afk_det_model, caller="main", test_time=None):
     return None
 
 
-def move_a_bit(interval=0.1):
+def move_a_bit(interval=0.15):
     pyautogui.keyDown("w")
     sleep(interval)
     pyautogui.keyUp("w")
@@ -619,7 +628,7 @@ def exposure_image(left_top_bound, right_bottom_bound, duration, hwnd=None, capt
                 screenshot = gdi.gdi_capture(hwnd)
             elif capture_method == "BitBlt":
                 screenshot = bitblt.bitblt_capture(hwnd)
-            elif capture_method == "Windows Graphics Capture":
+            elif capture_method == "WWGC":
                 screenshot = wgc.wgc_capture(hwnd)
             screenshot = crop_image(
                 left_top_bound, right_bottom_bound, screenshot)

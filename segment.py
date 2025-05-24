@@ -152,7 +152,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                     image = bitblt.bitblt_capture(window["hwnd"])
                 elif window["capture_method"] == "GDI":
                     image = gdi.gdi_capture(window["hwnd"])
-                elif window["capture_method"] == "Windows Graphics Capture":
+                elif window["capture_method"] == "WGC":
                     image = wgc.wgc_capture(window["hwnd"])
                 image = cv2.cvtColor(
                     np.array(image), cv2.COLOR_RGBA2RGB)
