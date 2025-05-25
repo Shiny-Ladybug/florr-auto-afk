@@ -7,7 +7,6 @@ __pycache__/
 *.so
 
 # florr-auto-afk auto-generating
-*.pt
 latest.log
 debug.log
 images/

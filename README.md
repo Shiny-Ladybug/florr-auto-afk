@@ -1,6 +1,8 @@
-# florr auto afk (v1.2.7) (2025-05-23 Update)
+# florr auto afk (v1.2.7) (2025-05-25 Update)
 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Shiny-Ladybug/florr-auto-afk/build-python.yml?style=for-the-badge) ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/Shiny-Ladybug/florr-auto-afk?style=for-the-badge) ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Shiny-Ladybug/florr-auto-afk/total?style=for-the-badge) ![GitHub Release](https://img.shields.io/github/v/release/Shiny-Ladybug/florr-auto-afk?style=for-the-badge)
+
+Web Page: https://shiny-ladybug.github.io/
 
 > As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 

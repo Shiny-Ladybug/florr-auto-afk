@@ -16,7 +16,7 @@ def try_locate_ready(img, shared_logger):
         if found is None or max_val > found[0]:
             found = (max_val, max_loc, resized.shape[:2])
 
-    if found and found[0] >= 0.5:
+    if found and found[0] >= 0.7:
         multiprocessing.Process(
             target=send_notification, args=("AFK Detection Failed",)).start()
         multiprocessing.Process(
@@ -211,7 +211,6 @@ def execute_afk(position, ori_image, image, afk_seg_model, suppress_idle_detecti
 
     results_ = deepcopy(results)
     image_ = deepcopy(image)
-    threading_save(image_, results_)
     if start_p is None:
         log_ret("No start point found, going for AUTO prediction",
                 "WARNING", shared_logger)
@@ -244,6 +243,8 @@ def execute_afk(position, ori_image, image, afk_seg_model, suppress_idle_detecti
 
     ori_image = draw_annotated_image(
         ori_image, line, start_p, end_p, window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length(), afk_path.get_difficulty())
+
+    threading_save(image_, results_, afk_path.get_difficulty())
 
     save_image(ori_image, "afk_solution", "afk")
 
@@ -486,17 +487,34 @@ def update_page(new_page_stat):
         canvas.pack(anchor="center", pady=20)
         announcement_title.pack(anchor="w", pady=0)
         announcement_label.pack(anchor="w", pady=0)
+        button_link_frame = ttk.Frame(main_content)
+        button_link_frame.pack(side="bottom", anchor="se",
+                               fill="x", padx=10, pady=10)
+
         launch_button = ttk.Button(
-            main_content,
+            button_link_frame,
             text=get_ui_translation(
-                "launch_run") if not segment_running.value else "Terminate",
+                "launch_run") if not segment_running.value else get_ui_translation("launch_terminate"),
             width=30,
             style="Large.TButton",
             command=lambda: toggle_segment_process([{"title": w["title"],
                                                      "hwnd": w["hwnd"], "capture_method": w["capture_method"]} for w in capture_windows])
         )
         launch_button.config(style="Accent.TButton")
-        launch_button.pack(side="bottom", anchor="se", padx=10, pady=10)
+        launch_button.pack(side="right")
+
+        def open_link(event):
+            open_url("https://shiny-ladybug.github.io/")
+
+        link_label = ttk.Label(
+            button_link_frame,
+            text="Pages: https://shiny-ladybug.github.io/",
+            foreground="#0969da",
+            cursor="hand2",
+            font=("Microsoft Yahei", 10, "underline")
+        )
+        link_label.pack(side="left")
+        link_label.bind("<Button-1>", open_link)
     elif page_stat == "console":
         if theme == "Dark":
             console_bg = "#1c1c1c"
@@ -541,7 +559,7 @@ def update_page(new_page_stat):
         if segment_running.value:
             terminate_button = ttk.Button(
                 button_frame,
-                text="Terminate",
+                text=get_ui_translation("launch_terminate"),
                 width=13,
                 command=lambda: toggle_segment_process([{"title": w["title"],
                                                          "hwnd": w["hwnd"], "capture_method": w["capture_method"]} for w in capture_windows])
@@ -644,15 +662,16 @@ def update_page(new_page_stat):
         start_test_button.pack(side="bottom", pady=10)
 
 
-def threading_save(image, results):
+def threading_save(image, results, difficulty):
     if get_config()["advanced"]["saveTrainData"]:
         label = export_result_to_dataset(results, image)
         if check_eula():
-            try:
-                multiprocessing.Process(
-                    target=gh_upload_dataset, args=(image, label,)).start()
-            except:
-                log("Failed to upload dataset to GitHub", "ERROR")
+            if difficulty > 15:
+                try:
+                    multiprocessing.Process(
+                        target=gh_upload_dataset, args=(image, label,)).start()
+                except:
+                    log("Failed to upload dataset to GitHub", "ERROR")
 
 
 if __name__ == "__main__":

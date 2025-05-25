@@ -17,6 +17,7 @@ import imghdr
 import psutil
 import json
 import ctypes
+from webbrowser import open as open_url
 import tkinter as tk
 
 

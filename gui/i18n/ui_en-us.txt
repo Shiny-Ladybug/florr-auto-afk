@@ -6,6 +6,7 @@ page_test=Test
 page_settings=Settings
 launch_announcements=Announcements
 launch_run=Run
+launch_terminate=Terminate
 image_choose=Choose
 console_clear=Clear Console
 hooks_capture=Capture Window
