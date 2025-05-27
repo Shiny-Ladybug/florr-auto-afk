@@ -1,8 +1,8 @@
-# florr auto afk (v1.2.7) (2025-05-25 Update)
+# florr auto afk (v1.2.8) (2025-05-27 Update)
 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Shiny-Ladybug/florr-auto-afk/build-python.yml?style=for-the-badge) ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/Shiny-Ladybug/florr-auto-afk?style=for-the-badge) ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Shiny-Ladybug/florr-auto-afk/total?style=for-the-badge) ![GitHub Release](https://img.shields.io/github/v/release/Shiny-Ladybug/florr-auto-afk?style=for-the-badge)
 
-Web Page: https://shiny-ladybug.github.io/
+Web Page: https://shiny-ladybug.github.io
 
 > As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
@@ -125,7 +125,6 @@ Now those stupid codes go under the `onnx` branch.
 
   ![exposure showcase](./imgs/exposure.jpg "exposure showcase")
 
-
 ## Gallery
 
 Old model was trained on `4/30/2025` based on 107 instances with 698 epochs.
@@ -141,7 +140,6 @@ New model was trained on `5/23/2025` based on 225 instances (192 train, 33 val) 
 <img src="./imgs/gallery-new.png" alt="4/30/2025 Model Gallery" style="zoom: 30%;"/>
 </figure>
 </center>
-
 
 ![img](./imgs/results-old.png "4/30/2025 Model Results")
 
@@ -166,14 +164,11 @@ The density using `KDTree` to count the neighbor points
    Model most recent updated on `4/30/2025`
 
    Training for 632 epochs based on 107 instances.
-   
 2. Try to use the YOLO model `afk-seg`.pt to separate the AFK Path.
 
    Detailed Model Information go check [Model Gallery](##Gallery).
-
 3. Use the `cv2.ximgproc.thinning()` method to get the skeletonized path.
-
-5. Loop
+4. Loop
 
 ## FAQ
 
