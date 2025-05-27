@@ -2,34 +2,6 @@ from gui_utils import *
 import multiprocessing
 
 
-def try_locate_ready(img, shared_logger):
-    ready = cv2.imread("./models/assets/Ready.PNG")
-    screenshot = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-
-    found = None
-    for scale in np.linspace(0.5, 1.5, 20)[::-1]:
-        resized = cv2.resize(ready, (0, 0), fx=scale, fy=scale)
-        if resized.shape[0] > screenshot.shape[0] or resized.shape[1] > screenshot.shape[1]:
-            continue
-        result = cv2.matchTemplate(screenshot, resized, cv2.TM_CCOEFF_NORMED)
-        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-        if found is None or max_val > found[0]:
-            found = (max_val, max_loc, resized.shape[:2])
-
-    if found and found[0] >= 0.7:
-        multiprocessing.Process(
-            target=send_notification, args=("AFK Detection Failed",)).start()
-        multiprocessing.Process(
-            target=send_sound_notification, args=(3,)).start()
-        log_ret("AFK Detection Failed", "EVENT", shared_logger)
-        debugger("AFK Detection Failed")
-        max_val, max_loc, (h, w) = found
-        center_x = max_loc[0] + w // 2
-        center_y = max_loc[1] + h // 2
-        pyautogui.moveTo(center_x, center_y)
-        pyautogui.click()
-
-
 def test_idle_thread(idled_flag, suppress_idle_detection, shared_logger, not_stop_event):
     last_pos = None
     idle_iter = 0
@@ -103,7 +75,24 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
             image = cv2.cvtColor(
                 np.array(image), cv2.COLOR_RGB2BGR)
             ori_image = image.copy()
-            try_locate_ready(ori_image, shared_logger)
+
+            ready_button = locate_ready(image)
+            if ready_button is not None:
+                multiprocessing.Process(
+                    target=send_notification, args=("AFK Detection Failed",)).start()
+                multiprocessing.Process(
+                    target=send_sound_notification, args=(3,)).start()
+                with suppress_idle_detection.get_lock():
+                    suppress_idle_detection.value = True
+                pyautogui.click(
+                    ready_button[0], ready_button[1], button='left')
+                with suppress_idle_detection.get_lock():
+                    suppress_idle_detection.value = False
+                log_ret("AFK detection failed", "EVENT", shared_logger)
+                debugger("AFK detection failed, ready button found", ready_button)
+                sleep(1)
+                continue
+
             position = detect_afk(image, afk_det_model)
             if position is None:
                 debugger("No AFK window found")
@@ -157,7 +146,36 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 image = cv2.cvtColor(
                     np.array(image), cv2.COLOR_RGBA2RGB)
                 ori_image = image.copy()
-                try_locate_ready(ori_image, shared_logger)
+
+                ready_button = locate_ready(image)
+                if ready_button is not None:
+                    multiprocessing.Process(
+                        target=send_notification, args=("AFK Detection Failed",)).start()
+                    multiprocessing.Process(
+                        target=send_sound_notification, args=(3,)).start()
+
+                    now_windows: list[gw.Win32Window] = gw.getWindowsWithTitle(
+                        "")
+                    for w in now_windows:
+                        if w._hWnd == window['hwnd']:
+                            debugger("Activating window",
+                                     window['hwnd'], w.title)
+                            w.activate()
+                            break
+                    with suppress_idle_detection.get_lock():
+                        suppress_idle_detection.value = True
+                    pyautogui.click(
+                        ready_button[0], ready_button[1], button='left')
+                    with suppress_idle_detection.get_lock():
+                        suppress_idle_detection.value = False
+                    pyautogui.hotkey('alt', 'tab')
+
+                    log_ret("AFK detection failed", "EVENT", shared_logger)
+                    debugger(
+                        "AFK detection failed, ready button found", ready_button)
+                    sleep(1)
+                    continue
+
                 position = detect_afk(image, afk_det_model)
                 if position is None:
                     results.append(False)
@@ -296,11 +314,13 @@ def execute_afk(position, ori_image, image, afk_seg_model, suppress_idle_detecti
 
 def run_segment(idled_flag, suppress_idle_detection, shared_logger, capture_windows, stop_segment_event):
     global segment_process, idle_thread, afk_thread_process
+    debugger("`run_segment` started")
     stop_idle_event = multiprocessing.Event()
     stop_afk_event = multiprocessing.Event()
     if get_config()["runs"]["autoTakeOverWhenIdle"]:
         idle_thread = multiprocessing.Process(
             target=test_idle_thread, args=(idled_flag, suppress_idle_detection, shared_logger, stop_idle_event))
+    debugger("calling `afk_thread`")
     afk_thread_process = multiprocessing.Process(
         target=afk_thread, args=(idled_flag, suppress_idle_detection, shared_logger, capture_windows, stop_afk_event))
     if get_config()["runs"]["autoTakeOverWhenIdle"]:
@@ -331,6 +351,7 @@ def start_segment_process(segment_running, shared_logger, capture_windows):
         with idled_flag.get_lock():
             idled_flag.value = True
     log_ret("Segment process started", "INFO", shared_logger)
+    debugger("Calling `run_segment`")
     segment_process = multiprocessing.Process(
         target=run_segment, args=(idled_flag, suppress_idle_detection, shared_logger, capture_windows, stop_event))
     segment_process.start()
@@ -352,7 +373,6 @@ def toggle_segment_process(capture_windows):
         update_page("launch")
     else:
         start_segment_process(segment_running, shared_logger, capture_windows)
-        log_ret("Segment process started.", "INFO", shared_logger)
         update_page("console")
 
 
@@ -365,7 +385,7 @@ def start_test(frame, file_path: str):
         if not (file_path.lower().endswith(".png") or file_path.lower().endswith(".jpg") or file_path.lower().endswith(".jpeg")):
             raise FileNotFoundError
         image = cv2.imread(file_path)
-        img_type = imghdr.what(file_path)
+        img_type = imghdr_what(file_path)
         if img_type != "png" and img_type != "jpeg":
             raise FileNotFoundError
     except FileNotFoundError:
@@ -508,7 +528,7 @@ def update_page(new_page_stat):
 
         link_label = ttk.Label(
             button_link_frame,
-            text="Pages: https://shiny-ladybug.github.io/",
+            text="Pages: https://shiny-ladybug.github.io",
             foreground="#0969da",
             cursor="hand2",
             font=("Microsoft Yahei", 10, "underline")
@@ -613,7 +633,7 @@ def update_page(new_page_stat):
         images = listdir("./images/afk")
         names = [name.removeprefix("afk_solution_").removesuffix(".png") for name in images if name.startswith(
             "afk_solution_") and name.endswith(".png")]
-        for name in sorted(names):
+        for name in sorted(names, reverse=True):
             name_label = ttk.Label(
                 scrollable_content, text=name, font=("Arial", 14, "bold"))
             name_label.pack(anchor="w", pady=5)
@@ -664,12 +684,12 @@ def update_page(new_page_stat):
 
 def threading_save(image, results, difficulty):
     if get_config()["advanced"]["saveTrainData"]:
-        label = export_result_to_dataset(results, image)
+        label, create_time = export_result_to_dataset(results, image)
         if check_eula():
             if difficulty > 15:
                 try:
                     multiprocessing.Process(
-                        target=gh_upload_dataset, args=(image, label,)).start()
+                        target=gh_upload_dataset, args=(create_time, label,)).start()
                 except:
                     log("Failed to upload dataset to GitHub", "ERROR")
 
@@ -690,7 +710,7 @@ if __name__ == "__main__":
     if not get_config()["advanced"]["skipUpdate"]:
         update_models()
     else:
-        log("Skipping model update", "WARNING")
+        log("Skipping update", "WARNING")
 
     if constants.VERSION_TYPE == "Release":
         version = constants.VERSION_INFO

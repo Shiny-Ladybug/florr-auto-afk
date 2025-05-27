@@ -703,7 +703,7 @@ def export_result_to_dataset(results, image, epsilon=1):
     with tar_open("./train/train.tar.gz", "w:gz") as tar:
         tar.add("./train/images", arcname="images")
         tar.add("./train/split", arcname="split")
-    return labelme_data
+    return labelme_data, now
 
 
 def check_config(shared_logger):
@@ -736,7 +736,7 @@ def check_config(shared_logger):
                 "WARNING", shared_logger, save=False)
     try:
         eval(config["advanced"]["rdpEpsilon"].replace("width", str(1)))
-    except Exception as e:
+    except (SyntaxError, NameError, TypeError, ValueError) as e:
         log_ret(f"Invalid RDP Epsilon Expression: {config['advanced']['rdpEpsilon']}",
                 "CRITICAL", shared_logger, save=False)
         raise e
@@ -782,6 +782,27 @@ def draw_annotated_image(ori_image, line, start_p, end_p, window_pos, start_colo
     return image
 
 
+def locate_ready(image):
+    ready = cv2.imread("./models/assets/Ready.PNG")
+    screenshot = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+    found = None
+    for scale in np.linspace(0.5, 1.5, 20)[::-1]:
+        resized = cv2.resize(ready, (0, 0), fx=scale, fy=scale)
+        if resized.shape[0] > screenshot.shape[0] or resized.shape[1] > screenshot.shape[1]:
+            continue
+        result = cv2.matchTemplate(screenshot, resized, cv2.TM_CCOEFF_NORMED)
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+        if found is None or max_val > found[0]:
+            found = (max_val, max_loc, resized.shape[:2])
+
+    if found and found[0] >= 0.7:
+        max_val, max_loc, (h, w) = found
+        center_x = max_loc[0] + w // 2
+        center_y = max_loc[1] + h // 2
+        return center_x, center_y, found[0]
+
+
 def gh_upload_file(repo, target_path, content, message):
     try:
         contents = repo.get_contents(target_path)
@@ -799,13 +820,13 @@ def gh_upload_file(repo, target_path, content, message):
         )
 
 
-def gh_upload_dataset(image, label):
+def gh_upload_dataset(create_time, label):
     g = Github(constants.GITHUB_TOKEN)
     repo = g.get_repo(constants.DATASET_REPO)
     alias = str(uuid4()).replace("-", "")
     date = datetime.now().strftime("%Y-%m-%dT%H_%M_%SZ")
-    _, img_encoded = cv2.imencode('.png', image)
-    img_bytes = img_encoded.tobytes()
+    with open(f"./train/images/{create_time}.png", "rb") as f:
+        img_bytes = f.read()
     label_bytes = dumps(label, ensure_ascii=False,
                         indent=2).encode('utf-8')
     gh_upload_file(repo, f"./{alias}/{alias}.png",

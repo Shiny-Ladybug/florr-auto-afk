@@ -13,8 +13,7 @@ from win11toast import toast
 from playsound import playsound
 from copy import deepcopy
 import sv_ttk
-import imghdr
-import psutil
+from imghdr import what as imghdr_what
 import json
 import ctypes
 from webbrowser import open as open_url
@@ -509,40 +508,40 @@ def add_rounded_image_to_canvas(main_content, image, theme, height=200, radius=2
 
 
 def generate_announcement(skip_update=False):
-    if not skip_update:
-        upd = check_update()
-    else:
-        upd = None
-    if upd is None:
-        update_msg = "Failed to check for updates."
-    else:
-        if upd[0] and not skip_update:
-            new_update, remote_version = upd
-            remote_version = '.'.join([str(i) for i in remote_version])
-            update_msg = f"New version v{remote_version} is available!"
-        elif not upd[0] and not skip_update:
-            update_msg = "No new updates available."
-        elif skip_update:
-            update_msg = "Update check skipped."
-    changelog_msg = "Changelog:\n"
-    latest = constants.CHANGELOG.get(constants.VERSION_INFO, [])
-    if latest or skip_update:
+    if skip_update:
+        changelog_msg = "Changelog:\n"
+        latest = constants.CHANGELOG.get(constants.VERSION_INFO, [])
         changelog_msg += f"Version {constants.VERSION_INFO}:\n"
+        update_msg = "Update check skipped."
         for change in latest:
             changelog_msg += f"- {change}\n"
+        return "\n\n".join([update_msg, changelog_msg])
+    upd = check_update()
+    if upd is None:
+        update_msg = "Failed to check for updates."
+        return update_msg
+    if upd[0]:
+        remote_version = upd[1]
+        remote_changelog = get_changelog()
+        if remote_changelog is None:
+            update_msg = "Failed to fetch changelog."
+            return update_msg
+        latest = remote_changelog.get(
+            ".".join([str(n) for n in remote_version]), [])
+        changelog_msg = "Changelog:\n"
+        changelog_msg += f'Version {".".join([str(n) for n in remote_version])}:\n'
+        for change in latest:
+            changelog_msg += f"- {change}\n"
+        update_msg = f'Version v{".".join([str(n) for n in remote_version])} is available.'
+        return "\n\n".join([update_msg, changelog_msg])
     else:
-        if not skip_update:
-            latest_v = get_changelog()
-            if latest_v:
-                latest = latest_v[list(latest_v.items())[0][0]]
-                changelog_msg += f"Version {list(latest_v.items())[0][0]}:"
-                for change in latest:
-                    changelog_msg += f"\n- {change}"
-            else:
-                changelog_msg += "No changelog available."
-        else:
-            changelog_msg += "No changelog available."
-    return "\n\n".join([update_msg, changelog_msg])
+        changelog_msg = "Changelog:\n"
+        latest = constants.CHANGELOG.get(constants.VERSION_INFO, [])
+        changelog_msg += f"Version {constants.VERSION_INFO}:\n"
+        update_msg = f"You are using the latest version (v{constants.VERSION_INFO})."
+        for change in latest:
+            changelog_msg += f"- {change}\n"
+        return "\n\n".join([update_msg, changelog_msg])
 
 
 def get_changelog():
@@ -578,9 +577,9 @@ def open_capture_window(root, main_content):
             f"[{Process(GetWindowThreadProcessId(w._hWnd)[1]).name()}]: {w.title}" for w in available_windows]
         w = available_windows[names.index(selected_title)]
         hwnd = w._hWnd
-        if str(w.title).strip().endswith("Microsoft​ Edge") or str(w.title).strip().endswith("Microsoft​ Edge Beta"):
+        if str(w.title).strip().endswith("Microsoft​ Edge") or str(w.title).strip().endswith("Microsoft​ Edge Beta") or str(w.title).strip().endswith("Microsoft​ Edge Dev") or str(w.title).strip().endswith("Microsoft​ Edge Canary"):
             notice_label.config(
-                text="Note: canvas won't auto refresh with Release Microsoft Edge or Edge Beta, use Edge Dev/Canary instead")
+                text="Note: Edge is no longer supported, use Chrome/Firefox instead")
         elif str(w.title).strip().endswith("Google Chrome"):
             notice_label.config(
                 text="Note: make sure you disable `CalculateNativeWinOcclusion`")

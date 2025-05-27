@@ -78,13 +78,17 @@ If you can't find the element, try running this and replace the `chrome.exe` pat
 "C:\Program Files\Google\Chrome\Application\chrome.exe" --disable-features=CalculateNativeWinOcclusion
 ```
 
-### Edge
+### Edge (Not Supported)
 
-I didn't find a method to disable the future, however, I found this in `Edge Beta`, `Edge Dev`, and `Edge Canary`, check the Insider Edge version at https://www.microsoft.com/en-us/edge/download/insider
+> ~~I didn't find a method to disable the feature, however, I found this in `Edge Beta`, `Edge Dev`, and `Edge Canary`, check the Insider Edge version at https://www.microsoft.com/en-us/edge/download/insider~~
+>
+> ~~Hence, you should install one of `Edge Beta`, `Edge Dev`, or `Edge Canary`.~~
+>
+> ~~After you install the Insider version, go to `edge://flags/` and disable `CalculateNativeWinOcclusion` (essentially the same as what you do for Chrome).~~
 
-Hence, you should install one of `Edge Beta`, `Edge Dev`, or `Edge Canary`.
+I find there is no sight of disabling `CalculateNativeWinOcclusion`  on 05/27/2025. Both Edge Beta (137.0.3296.39) and Edge Canary (137.0.3283.0) cannot disable the feature any longer.
 
-After you install the Insider version, go to `edge://flags/` and disable `CalculateNativeWinOcclusion` (essentially the same as what you do for Chrome).
+So I announce that Edge is **End of Support** now.
 
 ### Firefox
 
