@@ -628,7 +628,7 @@ def exposure_image(left_top_bound, right_bottom_bound, duration, hwnd=None, capt
                 screenshot = gdi.gdi_capture(hwnd)
             elif capture_method == "BitBlt":
                 screenshot = bitblt.bitblt_capture(hwnd)
-            elif capture_method == "WWGC":
+            elif capture_method == "WGC":
                 screenshot = wgc.wgc_capture(hwnd)
             screenshot = crop_image(
                 left_top_bound, right_bottom_bound, screenshot)
