@@ -22,7 +22,7 @@ from ultralytics import YOLO
 from tarfile import open as tar_open
 from github import Github
 from uuid import uuid4
-import heapq
+from heapq import heappop, heappush
 
 console = Console()
 
@@ -160,15 +160,10 @@ def download_file(url, filename):
 
 def update_models():
     repo = constants.ASSET_REPO
-    url = f"https://api.github.com/repos/{repo}/releases/latest"
-    response = requests.get(url)
-    if response.status_code != 200:
-        log("Trying GitHub mirror API", "WARNING")
-        url = f"https://gh.llkk.cc/https://api.github.com/repos/{repo}/releases/latest"
-        response = requests.get(url)
-        if response.status_code != 200:
-            log("Failed to get latest release info", "ERROR")
-            return
+    response = request_github_api(f"repos/{repo}/releases/latest")
+    if response is None:
+        log("Failed to get latest release info", "ERROR")
+        return
     release_date = response.json()["published_at"]
     if not path.exists("./models/version"):
         with open("./models/version", "w") as f:
@@ -184,15 +179,55 @@ def update_models():
     assets = [asset for asset in assets if asset["name"]
               in ["afk-seg.pt", "afk-det.pt"]]
     for asset in assets:
-        try:
-            download_file(asset["browser_download_url"],
-                          "./models/"+asset["name"])
-        except:
-            download_file("https://gh.llkk.cc/" +
-                          asset["browser_download_url"], "./models/"+asset["name"])
+        if not download_github_asset(asset["browser_download_url"],
+                                     "./models/"+asset["name"]):
+            log(f"Failed to download {asset['name']}", "ERROR", save=False)
+            return
     with open("./models/version", "w") as f:
         f.write(release_date)
     log("Models updated", "INFO")
+
+
+def request_github_api(endpoint):
+    mirrors = [
+        "https://api.github.com",
+        "https://gh.llkk.cc/https://api.github.com",
+        "https://j.1win.ggff.net/https://api.github.com",
+        "https://j.1win.ip-ddns.com/https://api.github.com",
+        "https://j.1win.ddns-ip.net/https://api.github.com",
+        "https://ghfile.geekertao.top/https://api.github.com"
+    ]
+    for mirror in mirrors:
+        url = f"{mirror}/{endpoint}"
+        try:
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                return response
+            else:
+                log(f"Failed to get {endpoint} from {mirror}, code: {response.status_code}",
+                    "WARNING", save=False)
+        except requests.RequestException as e:
+            continue
+    return None
+
+
+def download_github_asset(url, filename):
+    mirrors = [
+        "",  # base
+        "https://github.moeyy.xyz/",
+        "https://ghproxy.net/",
+        "https://ghfast.top/",
+    ]
+    for mirror in mirrors:
+        full_url = f"{mirror}{url}"
+        try:
+            download_file(full_url, filename)
+            return True
+        except requests.RequestException as e:
+            log(
+                f"Failed to download {filename} from {full_url}, error: {e}", "WARNING", save=False)
+            continue
+    return None
 
 
 def check_update():
@@ -205,15 +240,10 @@ def check_update():
         return version1 < version2
 
     repo = constants.PROJECT_REPO
-    url = f"https://api.github.com/repos/{repo}/releases/latest"
-    response = requests.get(url)
-    if response.status_code != 200:
-        log("Trying GitHub mirror API", "WARNING")
-        url = f"https://gh.llkk.cc/https://api.github.com/repos/{repo}/releases/latest"
-        response = requests.get(url)
-        if response.status_code != 200:
-            log("Failed to get latest release info", "ERROR")
-            return
+    response = request_github_api(f"repos/{repo}/releases/latest")
+    if response is None:
+        log("Failed to get latest release info", "ERROR")
+        return
     remote_version = parse_version(response.json()["tag_name"])
     local_version = parse_version(constants.VERSION_INFO)
     if compare_versions(local_version, remote_version):
@@ -318,7 +348,7 @@ class AFK_Path:
         pq = [(-dt[sy, sx], (sx, sy))]
         dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
         while pq:
-            neg_dist, (x, y) = heapq.heappop(pq)
+            neg_dist, (x, y) = heappop(pq)
             curr = -neg_dist
             if (x, y) == (ex, ey):
                 break
@@ -334,7 +364,7 @@ class AFK_Path:
                 if new_w > max_w[ny, nx]:
                     max_w[ny, nx] = new_w
                     prev[(nx, ny)] = (x, y)
-                    heapq.heappush(pq, (-new_w, (nx, ny)))
+                    heappush(pq, (-new_w, (nx, ny)))
         path = []
         cur = (ex, ey)
         if cur in prev or cur == (sx, sy):
@@ -531,7 +561,7 @@ def crop_image(left_top_bound, right_bottom_bound, image):
     return image[left_top_bound[1]:right_bottom_bound[1], left_top_bound[0]:right_bottom_bound[0]]
 
 
-def test_environment(afk_seg_model):
+def test_environment(afk_seg_model, afk_det_model):
     if get_config()["advanced"]["environment"]:
         return
     initiate()
@@ -539,15 +569,48 @@ def test_environment(afk_seg_model):
     image = cv2.imread("./imgs/test.png")
     results = {}
     log("Testing YOLO", "INFO")
-    result = afk_seg_model.predict(image, retina_masks=True, verbose=False)
-    masks = result[0].masks
-    if masks is not None:
-        log(f"YOLO passed", "INFO")
-        results['yolo'] = True
-    else:
-        log("YOLO failed", "ERROR")
-        results['yolo'] = False
+
+    t_start = time()
+    afk_window_pos = detect_afk_window(image, afk_det_model)
+    t_det_win = time()
+    cropped_image = crop_image(
+        afk_window_pos[0], afk_window_pos[1], image)
+    start_p, end_p, start_size = detect_afk_things(
+        cropped_image, afk_det_model, caller="")
+    t_det_things = time()
+    res = get_masks_by_iou(cropped_image, afk_seg_model)
+    t_seg = time()
+    mask, _ = res
+    afk_mask = AFK_Segment(image, mask, start_p, end_p, start_size)
+    t_init_mask = time()
+    if start_p is not None:
+        afk_mask.save_start()
+    afk_path = AFK_Path(afk_mask.segment_path(), start_p,
+                        end_p, afk_mask.get_width())
+    t_init_path = time()
+    afk_path.dijkstra(afk_mask.mask)
+    t_sort = time()
+    afk_path.rdp(round(eval(get_config()["advanced"]["rdpEpsilon"].replace(
+        "width", str(afk_mask.get_width())))))
+    t_rdp = time()
+    afk_path.extend(get_config()["advanced"]["extendLength"])
+    afk_path.get_final(afk_window_pos[0], precise=False)
+    t_final = time()
+    log(f"===== YOLO TEST =====", "INFO")
+    log(f"Det Win: {t_det_win - t_start:.5f}s/{t_det_win - t_start:.5f}s", "INFO")
+    log("↑ This should take a bit longer because YOLO need to initialize the model.", "INFO")
+    log(f"Det Things: {t_det_things - t_det_win:.5f}s/{t_det_things - t_start:.5f}s", "INFO")
+    log(f"Segment: {t_seg - t_det_things:.5f}s/{t_seg - t_start:.5f}s", "INFO")
+    log(f"Init Mask: {t_init_mask - t_seg:.5f}s/{t_init_mask - t_start:.5f}s", "INFO")
+    log(f"Init Path: {t_init_path - t_init_mask:.5f}s/{t_init_path - t_start:.5f}s", "INFO")
+    log(f"Sort Path: {t_sort - t_init_path:.5f}s/{t_sort - t_start:.5f}s", "INFO")
+    log(f"RDP Path: {t_rdp - t_sort:.5f}s/{t_rdp - t_start:.5f}s", "INFO")
+    log(f"Final Path: {t_final - t_rdp:.5f}s/{t_final - t_start:.5f}s", "INFO")
+    log(f"Total: {t_final - t_start:.5f}s", "INFO")
+    results['yolo'] = True
+
     log("Testing PyAutoGUI", "INFO")
+    log(f"===== PyAutoGUI TEST =====", "INFO")
     log(f"PyAutoGUI screen size: {pyautogui.size()}", "INFO")
     log(f"Mouse position: {pyautogui.position()}", "INFO")
     log("Mouse will move to (100, 100) in 1 second", "INFO")
@@ -558,6 +621,7 @@ def test_environment(afk_seg_model):
     else:
         log("PyAutoGUI failed", "ERROR")
         results['pyautogui'] = False
+
     if all(results.values()):
         log("Environment passed", "INFO")
     else:

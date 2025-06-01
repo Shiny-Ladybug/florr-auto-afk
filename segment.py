@@ -47,8 +47,10 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
         remove("./models/version")
         return
     debugger("Loaded configs", get_config())
-    test_environment(afk_seg_model)
-    log_ret("恭喜你，你成功把代码跑起来了，你是这个👍", "INFO", shared_logger, save=False)
+    test_environment(afk_seg_model, afk_det_model)
+    log_ret("YOLO Test Time results saved to ./latest.log",
+            "INFO", shared_logger, save=False)
+    log_ret("恭喜你，你成功把代码跑起来了，你是这个👍", "EVENT", shared_logger, save=False)
     countdown = get_config()["runs"]["runningCountDown"]
     if countdown == -1:
         log_ret("Running indefinitely", "INFO", shared_logger)
@@ -417,7 +419,7 @@ def start_test(frame, file_path: str):
     cropped_image = crop_image(
         afk_window_pos[0], afk_window_pos[1], image)
     start_p, end_p, start_size = detect_afk_things(
-        cropped_image, afk_det_model, caller="main")
+        cropped_image, afk_det_model, caller="test")
     position = start_p, end_p, afk_window_pos, start_size
     res = get_masks_by_iou(cropped_image, afk_seg_model)
     if res is None:
@@ -714,7 +716,8 @@ if __name__ == "__main__":
     if not get_config()["advanced"]["skipUpdate"]:
         try:
             update_models()
-        except:
+        except Exception as e:
+            log("Failed to update models: " + str(e), "ERROR")
             log("Failed to fetch update", "WARNING")
             pass
     else:

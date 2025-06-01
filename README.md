@@ -1,4 +1,4 @@
-# florr auto afk (v1.2.8) (2025-05-27 Update)
+# florr auto afk (v1.2.9) (2025-06-01 艾草 Update)
 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Shiny-Ladybug/florr-auto-afk/build-python.yml?style=for-the-badge) ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/Shiny-Ladybug/florr-auto-afk?style=for-the-badge) ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Shiny-Ladybug/florr-auto-afk/total?style=for-the-badge) ![GitHub Release](https://img.shields.io/github/v/release/Shiny-Ladybug/florr-auto-afk?style=for-the-badge)
 
@@ -129,7 +129,13 @@ Now those stupid codes go under the `onnx` branch.
 
 Old model was trained on `4/30/2025` based on 107 instances with 698 epochs.
 
-New model was trained on `5/23/2025` based on 225 instances (192 train, 33 val) with 431 epochs.
+Old model was trained on `5/23/2025` based on 225 instances (192 train, 33 val) with 431 epochs.
+
+> Thanks to you guys auto uploading datasets. I soon get bunches of raw datasets in https://github.com/Shiny-Ladybug/florr-afk.
+>
+> Also thanks to BF52[bot] (He was installed in the repo), he removes lots of invalid datasets for me automatically.
+
+New model is trained on `6/01/2025` based on 878 instances (747 train ~~actually 747 should be a boeing jet instead of a train~~, 131 val) with 521 epochs.
 
 <center>
 <figure>
@@ -137,13 +143,14 @@ New model was trained on `5/23/2025` based on 225 instances (192 train, 33 val) 
 ·
 ·
 ·
-<img src="./imgs/gallery-new.png" alt="4/30/2025 Model Gallery" style="zoom: 30%;"/>
+<img src="./imgs/gallery-new.png" alt="06/01/2025 Model Gallery" style="zoom: 30%;"/>
 </figure>
 </center>
 
+
 ![img](./imgs/results-old.png "4/30/2025 Model Results")
 
-![img](./imgs/results-new.png "5/24/2025 Model Results")
+![img](./imgs/results-new.png "06/01/2025 Model Results")
 
 ## Difficulty
 
@@ -164,10 +171,15 @@ The density using `KDTree` to count the neighbor points
    Model most recent updated on `4/30/2025`
 
    Training for 632 epochs based on 107 instances.
+
 2. Try to use the YOLO model `afk-seg`.pt to separate the AFK Path.
 
    Detailed Model Information go check [Model Gallery](##Gallery).
-3. Use the `cv2.ximgproc.thinning()` method to get the skeletonized path.
+
+3. Use modified dijkstra algorithm to find the path.
+
+   If no path was found, use the `cv2.ximgproc.thinning()` method to get the skeletonized path.
+
 4. Loop
 
 ## FAQ
