@@ -13,7 +13,6 @@ from win11toast import toast
 from playsound import playsound
 from copy import deepcopy
 import sv_ttk
-from imghdr import what as imghdr_what
 import json
 import ctypes
 from webbrowser import open as open_url
@@ -25,8 +24,11 @@ capture_windows = []
 
 
 def get_theme():
-    return detect_theme() if get_config(
-    )["gui"]["theme"] == "auto" else ("Dark" if get_config()["gui"]["theme"].lower() == "dark" else "Light")
+    conf = get_config()["gui"]["theme"]
+    if get_config() == "auto":
+        return "Dark" if detect_theme().lower() == "dark" else "Light"
+    else:
+        return "Dark" if conf.lower() == "dark" else "Light"
 
 
 theme = get_theme()

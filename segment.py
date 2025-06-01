@@ -385,9 +385,6 @@ def start_test(frame, file_path: str):
         if not (file_path.lower().endswith(".png") or file_path.lower().endswith(".jpg") or file_path.lower().endswith(".jpeg")):
             raise FileNotFoundError
         image = cv2.imread(file_path)
-        img_type = imghdr_what(file_path)
-        if img_type != "png" and img_type != "jpeg":
-            raise FileNotFoundError
     except FileNotFoundError:
         show_label(
             frame, "Cannot find specified path or is not PNG or JPG type", "red")
@@ -708,7 +705,11 @@ if __name__ == "__main__":
         get_config()["advanced"]["skipUpdate"])
 
     if not get_config()["advanced"]["skipUpdate"]:
-        update_models()
+        try:
+            update_models()
+        except:
+            log("Failed to fetch update", "WARNING")
+            pass
     else:
         log("Skipping update", "WARNING")
 
