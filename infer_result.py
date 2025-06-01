@@ -8,17 +8,19 @@ import math
 from tqdm import tqdm
 
 afk_det_model = YOLO("./models/afk-det.pt")
-afk_seg_model = YOLO("./models/afk-seg.pt")
+afk_seg_model = YOLO(
+    r"E:\florr\florr-auto-afk-model\runs\segment\train\weights\best.pt")
 
 
 def inference(image):
-    position = detect_afk(image, afk_det_model,
-                          caller="inference")
-    if position is None:
+    afk_window_pos = detect_afk_window(image, afk_det_model)
+    if afk_window_pos is None:
         return
-    start_p, end_p, window_pos, start_size = position
     cropped_image = crop_image(
-        window_pos[0], window_pos[1], image)
+        afk_window_pos[0], afk_window_pos[1], image)
+    start_p, end_p, start_size = detect_afk_things(
+        cropped_image, afk_det_model, caller="")
+    position = start_p, end_p, afk_window_pos, start_size
     res = get_masks_by_iou(cropped_image, afk_seg_model)
     if res is None:
         return
@@ -31,13 +33,15 @@ def inference(image):
         afk_mask.save_start()
     afk_path = AFK_Path(afk_mask.segment_path(), start_p,
                         end_p, afk_mask.get_width())
-    afk_path.sort()
+    dijkstra_stat = afk_path.dijkstra(afk_mask.mask)
+    if not dijkstra_stat:
+        afk_path.sort()
     afk_path.rdp(round(eval(get_config()["advanced"]["rdpEpsilon"].replace(
         "width", str(afk_mask.get_width())))))
     afk_path.extend(get_config()["advanced"]["extendLength"])
     line = afk_path.get_final(precise=False)
     annotated_image = draw_annotated_image(
-        cropped_image, line, start_p, end_p, ((0, 0), (window_pos[1][0]-window_pos[0][0], window_pos[1][1]-window_pos[0][1])), afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length(), afk_path.get_difficulty())
+        cropped_image, line, start_p, end_p, ((0, 0), (afk_window_pos[1][0]-afk_window_pos[0][0], afk_window_pos[1][1]-afk_window_pos[0][1])), afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length(), afk_path.get_difficulty(), afk_path.sort_method)
     return annotated_image
 
 

@@ -93,8 +93,8 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 sleep(1)
                 continue
 
-            position = detect_afk(image, afk_det_model)
-            if position is None:
+            afk_window_pos = detect_afk_window(image, afk_det_model)
+            if afk_window_pos is None:
                 debugger("No AFK window found")
                 if get_config()["advanced"]["verbose"]:
                     log("No AFK window found", "EVENT", save=False)
@@ -119,20 +119,20 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                     log_ret("Cannot execute extra binary", "ERROR")
 
             save_image(image, "afk", "afk")
-            left_top_bound = position[2][0]
-            right_bottom_bound = position[2][1]
-            debugger("Bounds", left_top_bound, right_bottom_bound)
+            left_top_bound, right_bottom_bound = afk_window_pos
+            debugger("Bounds", afk_window_pos)
             if get_config()["exposure"]["enable"]:
                 if get_config()["exposure"]["moveInterval"] > 0:
                     multiprocessing.Process(
-                        target=move_a_bit, args=(get_config()["exposure"]["moveInterval"],)).start()
+                        target=move_a_bit, args=(get_config()["exposure"]["moveInterval"], 4,)).start()
+                sleep(2)
                 image = exposure_image(
                     left_top_bound, right_bottom_bound, get_config()["exposure"]["duration"])
                 save_image(image, "exposure", "afk")
             else:
                 image = crop_image(
                     left_top_bound, right_bottom_bound, ori_image)
-            execute_afk(position, ori_image, image, afk_seg_model,
+            execute_afk(afk_window_pos, ori_image, image, afk_seg_model, afk_det_model,
                         suppress_idle_detection, shared_logger, type="fullscreen")
         else:
             results = []
@@ -176,8 +176,8 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                     sleep(1)
                     continue
 
-                position = detect_afk(image, afk_det_model)
-                if position is None:
+                afk_window_pos = detect_afk_window(image, afk_det_model)
+                if afk_window_pos is None:
                     results.append(False)
                     continue
                 log_ret(
@@ -195,8 +195,8 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                     except:
                         log_ret("Cannot execute extra binary", "ERROR")
                 save_image(image, "afk", "afk")
-                left_top_bound = position[2][0]
-                right_bottom_bound = position[2][1]
+                debugger("Bounds", afk_window_pos)
+                left_top_bound, right_bottom_bound = afk_window_pos
                 if get_config()["exposure"]["enable"]:
                     image = exposure_image(
                         left_top_bound, right_bottom_bound, get_config()["exposure"]["duration"], window["hwnd"], window["capture_method"])
@@ -204,7 +204,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 else:
                     image = crop_image(
                         left_top_bound, right_bottom_bound, ori_image)
-                execute_afk(position, ori_image, image, afk_seg_model,
+                execute_afk(afk_window_pos, ori_image, image, afk_seg_model, afk_det_model,
                             suppress_idle_detection, shared_logger, type="window", hwnd=window['hwnd'])
                 results.append(True)
             if not any(results):
@@ -218,13 +218,15 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 continue
 
 
-def execute_afk(position, ori_image, image, afk_seg_model, suppress_idle_detection, shared_logger, type="fullscreen", hwnd=None):
+def execute_afk(afk_window_pos, ori_image, image, afk_seg_model, afk_det_model, suppress_idle_detection, shared_logger, type="fullscreen", hwnd=None):
     res = get_masks_by_iou(image, afk_seg_model)
+    start_p, end_p, start_size = detect_afk_things(
+        image, afk_det_model, caller="main")
     if res is None:
         log_ret("No masks found", "ERROR", shared_logger)
         save_image(image, "mask", "error")
         return
-    start_p, end_p, window_pos, start_size = position
+    position = start_p, end_p, afk_window_pos, start_size
     mask, results = res
 
     results_ = deepcopy(results)
@@ -253,14 +255,16 @@ def execute_afk(position, ori_image, image, afk_seg_model, suppress_idle_detecti
 
     afk_path = AFK_Path(afk_mask.segment_path(), start_p,
                         end_p, afk_mask.get_width())
-    afk_path.sort()
+    dijkstra_stat = afk_path.dijkstra(afk_mask.mask)
+    if not dijkstra_stat:
+        afk_path.sort()
     afk_path.rdp(round(eval(get_config()["advanced"]["rdpEpsilon"].replace(
         "width", str(afk_mask.get_width())))))
     afk_path.extend(get_config()["advanced"]["extendLength"])
-    line = afk_path.get_final(window_pos[0], precise=False)
+    line = afk_path.get_final(afk_window_pos[0], precise=False)
 
     ori_image = draw_annotated_image(
-        ori_image, line, start_p, end_p, window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length(), afk_path.get_difficulty())
+        ori_image, line, start_p, end_p, afk_window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length(), afk_path.get_difficulty(), afk_path.sort_method)
 
     threading_save(image_, results_, afk_path.get_difficulty())
 
@@ -402,18 +406,19 @@ def start_test(frame, file_path: str):
         return
 
     ori_image = image.copy()
-    position = detect_afk(image, afk_det_model,
-                          caller="test", test_time=test_time)
-    if position is None:
+    afk_window_pos = detect_afk_window(image, afk_det_model)
+    if afk_window_pos is None:
         debugger("Test result: No AFK window found")
         show_label(frame, "Test result: No AFK window found")
         return
-    start_p, end_p, window_pos, start_size = position
     debugger("Test result: Found AFK window")
     show_label(
         frame, f"Test result: Found AFK window, results saved to ./test/{test_time}")
     cropped_image = crop_image(
-        window_pos[0], window_pos[1], image)
+        afk_window_pos[0], afk_window_pos[1], image)
+    start_p, end_p, start_size = detect_afk_things(
+        cropped_image, afk_det_model, caller="main")
+    position = start_p, end_p, afk_window_pos, start_size
     res = get_masks_by_iou(cropped_image, afk_seg_model)
     if res is None:
         save_test_image(image, "mask_err", test_time)
@@ -435,14 +440,16 @@ def start_test(frame, file_path: str):
 
     afk_path = AFK_Path(afk_mask.segment_path(), start_p,
                         end_p, afk_mask.get_width())
-    afk_path.sort()
+    dijkstra_stat = afk_path.dijkstra(afk_mask.mask)
+    if not dijkstra_stat:
+        afk_path.sort()
     afk_path.rdp(round(eval(get_config()["advanced"]["rdpEpsilon"].replace(
         "width", str(afk_mask.get_width())))))
     afk_path.extend(get_config()["advanced"]["extendLength"])
-    line = afk_path.get_final(window_pos[0], precise=False)
+    line = afk_path.get_final(afk_window_pos[0], precise=False)
 
     ori_image = draw_annotated_image(
-        ori_image, line, start_p, end_p, window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length(), afk_path.get_difficulty())
+        ori_image, line, start_p, end_p, afk_window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length(), afk_path.get_difficulty(), afk_path.sort_method)
 
     save_test_image(ori_image, "afk_solution", test_time)
 

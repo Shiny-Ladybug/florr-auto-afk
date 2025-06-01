@@ -25,7 +25,7 @@ capture_windows = []
 
 def get_theme():
     conf = get_config()["gui"]["theme"]
-    if get_config() == "auto":
+    if conf == "auto":
         return "Dark" if detect_theme().lower() == "dark" else "Light"
     else:
         return "Dark" if conf.lower() == "dark" else "Light"

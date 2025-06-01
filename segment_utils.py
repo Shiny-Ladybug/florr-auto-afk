@@ -22,6 +22,7 @@ from ultralytics import YOLO
 from tarfile import open as tar_open
 from github import Github
 from uuid import uuid4
+import heapq
 
 console = Console()
 
@@ -237,6 +238,7 @@ class AFK_Path:
         self.length: float = None
         self.difficulty: float = None
         self.width: float = width
+        self.sort_method = None
 
     def sort(self) -> None:
         if self.width is None or self.width <= 0:
@@ -266,6 +268,7 @@ class AFK_Path:
                 truncated_points = sorted_points
             self.sorted_points = truncated_points[::-1]
             self.sorted_points.append(self.end_p)
+            self.sort_method = "skeleton"
             self.sorted = True
         else:
             if self.start_p is not None:
@@ -279,6 +282,7 @@ class AFK_Path:
                     unused.remove(next_point)
                     current_point = next_point
                 self.sorted_points = sorted_points
+                self.sort_method = "skeleton"
                 self.sorted = True
             else:
                 unused = set(self.raw_points)
@@ -291,7 +295,60 @@ class AFK_Path:
                     unused.remove(next_point)
                     current_point = next_point
                 self.sorted_points = sorted_points
+                self.sort_method = "skeleton"
                 self.sorted = True
+
+    def dijkstra(self, mask: torch.Tensor) -> bool:
+        if self.start_p is None or self.end_p is None:
+            return False
+        area_mask = mask.cpu().numpy().astype(np.uint8) * 255
+        contours, _ = cv2.findContours(
+            area_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        area_mask = np.zeros_like(area_mask)
+        cv2.drawContours(area_mask, contours, -1, 255, -1)
+        dt = cv2.distanceTransform(area_mask, cv2.DIST_L2, 5)
+        h, w = dt.shape
+        sx, sy = round(self.start_p[0]), round(self.start_p[1])
+        ex, ey = round(self.end_p[0]), round(self.end_p[1])
+        if area_mask[sy, sx] == 0 or area_mask[ey, ex] == 0:
+            return False
+        max_w = -np.ones((h, w), dtype=np.float32)
+        prev = {}
+        max_w[sy, sx] = dt[sy, sx]
+        pq = [(-dt[sy, sx], (sx, sy))]
+        dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+        while pq:
+            neg_dist, (x, y) = heapq.heappop(pq)
+            curr = -neg_dist
+            if (x, y) == (ex, ey):
+                break
+            if curr < max_w[y, x]:
+                continue
+            for dx, dy in dirs:
+                nx, ny = x+dx, y+dy
+                if not (0 <= nx < w and 0 <= ny < h):
+                    continue
+                if area_mask[ny, nx] == 0:
+                    continue
+                new_w = min(curr, dt[ny, nx])
+                if new_w > max_w[ny, nx]:
+                    max_w[ny, nx] = new_w
+                    prev[(nx, ny)] = (x, y)
+                    heapq.heappush(pq, (-new_w, (nx, ny)))
+        path = []
+        cur = (ex, ey)
+        if cur in prev or cur == (sx, sy):
+            while cur != (sx, sy):
+                path.append(cur)
+                cur = prev[cur]
+            path.append((sx, sy))
+            path.reverse()
+        else:
+            return None
+        self.sorted_points = path
+        self.sort_method = "dijkstra"
+        self.sorted = True
+        return True
 
     def rdp(self, epsilon=1) -> None:
         if self.sorted:
@@ -555,7 +612,7 @@ def yolo_detect(model, img):
     return detected, img
 
 
-def detect_afk(img, afk_det_model, caller="main", test_time=None):
+def detect_afk_window(img, afk_det_model):
     things = yolo_detect(afk_det_model, img)
     windows_pos = None
     for thing in things[0]:
@@ -568,48 +625,52 @@ def detect_afk(img, afk_det_model, caller="main", test_time=None):
     window_height = windows_pos[1][1] - windows_pos[0][1]
     ratio = window_width / window_height
     if (get_config()["advanced"]["windowSizeRatio"][0]*(1-get_config()["advanced"]["windowSizeTolerance"]) < ratio < get_config()["advanced"]["windowSizeRatio"][0]*(1+get_config()["advanced"]["windowSizeTolerance"])) or (get_config()["advanced"]["windowSizeRatio"][1]*(1-get_config()["advanced"]["windowSizeTolerance"]) < ratio < get_config()["advanced"]["windowSizeRatio"][1]*(1+get_config()["advanced"]["windowSizeTolerance"])):
-        afk_window_img = img.copy()[windows_pos[0][1]:windows_pos[1][1],
-                                    windows_pos[0][0]:windows_pos[1][0]]
-        things_afk = yolo_detect(afk_det_model, afk_window_img)
-        if get_config()["advanced"]["saveYOLOImage"]:
-            for obj in things_afk[0]:
-                cv2.rectangle(afk_window_img, (obj['x_1'], obj['y_1']),
-                              (obj['x_2'], obj['y_2']), color=(0, 255, 0), thickness=2)
-                cv2.putText(afk_window_img, obj['name'], (obj['x_1'], obj['y_1'] - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                if caller == "main":
-                    save_image(afk_window_img, "det", "yolo")
-                elif caller == "test":
-                    save_test_image(afk_window_img, "det", test_time)
-        start_pos = end_pos = None
-        start_max_confidence = end_max_confidence = 0
-        start_size = 0
-        for thing in things_afk[0]:
-            if thing['name'] == 'Start' and thing['confidence'] > start_max_confidence:
-                start_pos = (thing['x_avg'], thing['y_avg'])
-                start_max_confidence = thing['confidence']
-                start_size = (abs(thing['x_2'] - thing['x_1']) +
-                              abs(thing['y_2'] - thing['y_1'])) / 2
-            if thing['name'] == 'End' and thing['confidence'] > end_max_confidence:
-                end_pos = (thing['x_avg'], thing['y_avg'])
-                end_max_confidence = thing['confidence']
-        return start_pos, end_pos, windows_pos, start_size
+        return windows_pos
     return None
 
 
-def move_a_bit(interval=0.15):
-    pyautogui.keyDown("w")
-    sleep(interval)
-    pyautogui.keyUp("w")
-    pyautogui.keyDown("d")
-    sleep(interval)
-    pyautogui.keyUp("d")
-    pyautogui.keyDown("s")
-    sleep(interval)
-    pyautogui.keyUp("s")
-    pyautogui.keyDown("a")
-    sleep(interval)
-    pyautogui.keyUp("a")
+def detect_afk_things(cropped_img, afk_det_model, caller="main", test_time=None):
+    afk_window_img = cropped_img.copy()
+    things_afk = yolo_detect(afk_det_model, afk_window_img)
+    if get_config()["advanced"]["saveYOLOImage"]:
+        for obj in things_afk[0]:
+            cv2.rectangle(afk_window_img, (obj['x_1'], obj['y_1']),
+                          (obj['x_2'], obj['y_2']), color=(0, 255, 0), thickness=2)
+            cv2.putText(afk_window_img, obj['name'], (obj['x_1'], obj['y_1'] - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            if caller == "main":
+                save_image(afk_window_img, "det", "yolo")
+            elif caller == "test":
+                save_test_image(afk_window_img, "det", test_time)
+    start_pos = end_pos = None
+    start_max_confidence = end_max_confidence = 0
+    start_size = 0
+    for thing in things_afk[0]:
+        if thing['name'] == 'Start' and thing['confidence'] > start_max_confidence:
+            start_pos = (thing['x_avg'], thing['y_avg'])
+            start_max_confidence = thing['confidence']
+            start_size = (abs(thing['x_2'] - thing['x_1']) +
+                          abs(thing['y_2'] - thing['y_1'])) / 2
+        if thing['name'] == 'End' and thing['confidence'] > end_max_confidence:
+            end_pos = (thing['x_avg'], thing['y_avg'])
+            end_max_confidence = thing['confidence']
+    return start_pos, end_pos, start_size
+
+
+def move_a_bit(interval=0.15, epochs=1):
+    for _ in range(epochs):
+        pyautogui.keyDown("w")
+        sleep(interval)
+        pyautogui.keyUp("w")
+        pyautogui.keyDown("d")
+        sleep(interval)
+        pyautogui.keyUp("d")
+        pyautogui.keyDown("s")
+        sleep(interval)
+        pyautogui.keyUp("s")
+        pyautogui.keyDown("a")
+        sleep(interval)
+        pyautogui.keyUp("a")
 
 
 def exposure_image(left_top_bound, right_bottom_bound, duration, hwnd=None, capture_method=None):
@@ -742,7 +803,7 @@ def check_config(shared_logger):
         raise e
 
 
-def draw_annotated_image(ori_image, line, start_p, end_p, window_pos, start_color, path_width, path_length, difficulty) -> cv2.Mat:
+def draw_annotated_image(ori_image, line, start_p, end_p, window_pos, start_color, path_width, path_length, difficulty, sort_method) -> cv2.Mat:
     image = ori_image.copy()
     for point in line:
         cv2.circle(image, point, 3, (255, 0, 0), -1)
@@ -775,6 +836,8 @@ def draw_annotated_image(ori_image, line, start_p, end_p, window_pos, start_colo
     cv2.line(image, p2, (p2[0]-corner_len, p2[1]), (0, 0, 255), 2)
     cv2.line(image, p2, (p2[0], p2[1]-corner_len), (0, 0, 255), 2)
 
+    cv2.putText(image, f'Method: {sort_method}', (window_pos[0][0]+10, window_pos[1][1]-46), cv2.FONT_HERSHEY_SIMPLEX,
+                0.5, (255, 255, 255))
     cv2.putText(image, f'Difficulty: {round(difficulty*100)/100}', (window_pos[0][0]+10, window_pos[1][1]-28), cv2.FONT_HERSHEY_SIMPLEX,
                 0.5, (255, 255, 255))
     cv2.putText(image, f'P_w: {round(path_width*100)/100}, P_l: {round(path_length*100)/100}', (window_pos[0][0]+10, window_pos[1][1]-10), cv2.FONT_HERSHEY_SIMPLEX,

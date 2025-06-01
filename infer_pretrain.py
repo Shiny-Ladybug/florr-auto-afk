@@ -40,13 +40,14 @@ def export_result_to_label(results, image, epsilon=1, path=None):
 
 
 def inference(image, image_path):
-    position = detect_afk(image, afk_det_model,
-                          caller="inference")
-    if position is None:
+    afk_window_pos = detect_afk_window(image, afk_det_model)
+    if afk_window_pos is None:
         return
-    start_p, end_p, window_pos, start_size = position
     cropped_image = crop_image(
-        window_pos[0], window_pos[1], image)
+        afk_window_pos[0], afk_window_pos[1], image)
+    start_p, end_p, start_size = detect_afk_things(
+        cropped_image, afk_det_model, caller="")
+    position = start_p, end_p, afk_window_pos, start_size
     res = get_masks_by_iou(cropped_image, afk_seg_model)
     if res is None:
         return
