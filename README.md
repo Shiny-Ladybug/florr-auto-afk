@@ -131,7 +131,7 @@ Old model was trained on `4/30/2025` based on 107 instances with 698 epochs.
 
 Old model was trained on `5/23/2025` based on 225 instances (192 train, 33 val) with 431 epochs.
 
-> Thanks to you guys auto uploading datasets. I soon get bunches of raw datasets in https://github.com/Shiny-Ladybug/florr-afk.
+> Thanks to you guys for uploading your datasets. I soon get bunches of raw datasets in https://github.com/Shiny-Ladybug/florr-afk.
 >
 > Also thanks to BF52[bot] (He was installed in the repo), he removes lots of invalid datasets for me automatically.
 

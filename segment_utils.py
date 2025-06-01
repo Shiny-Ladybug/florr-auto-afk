@@ -374,7 +374,7 @@ class AFK_Path:
             path.append((sx, sy))
             path.reverse()
         else:
-            return None
+            return False
         self.sorted_points = path
         self.sort_method = "dijkstra"
         self.sorted = True

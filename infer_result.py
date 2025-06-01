@@ -8,8 +8,7 @@ import math
 from tqdm import tqdm
 
 afk_det_model = YOLO("./models/afk-det.pt")
-afk_seg_model = YOLO(
-    r"E:\florr\florr-auto-afk-model\runs\segment\train\weights\best.pt")
+afk_seg_model = YOLO("./models/afk-seg.pt")
 
 
 def inference(image):
