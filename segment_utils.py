@@ -6,7 +6,7 @@ import pyautogui
 from psutil import Process, virtual_memory, cpu_freq
 from json import load, dump, dumps
 from sys import _getframe, getwindowsversion
-from os import path, mkdir, system, remove, listdir
+from os import path, mkdir, remove, listdir
 import numpy as np
 from datetime import datetime
 from time import sleep, time
@@ -561,7 +561,7 @@ def crop_image(left_top_bound, right_bottom_bound, image):
     return image[left_top_bound[1]:right_bottom_bound[1], left_top_bound[0]:right_bottom_bound[0]]
 
 
-def test_environment(afk_seg_model, afk_det_model):
+def test_environment(afk_seg_model, afk_det_model, shared_logger):
     if get_config()["advanced"]["environment"]:
         return
     initiate()
@@ -631,6 +631,8 @@ def test_environment(afk_seg_model, afk_det_model):
     configs["advanced"]['environment'] = True
     with open('config.json', 'w', encoding='utf-8') as f:
         dump(configs, f, ensure_ascii=False, indent=4)
+    log_ret("YOLO Test Time results saved to ./latest.log",
+            "INFO", shared_logger, save=False)
 
 
 def save_image(image, sub_type, type):

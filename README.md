@@ -1,4 +1,8 @@
-# florr auto afk (v1.2.9) (2025-06-01 艾草 Update)
+# florr auto afk (v1.3.0) (2025-06-06 Unstable DEV)
+
+> [!CAUTION]
+>
+> THIS VERSION IS HIGHLY-UNSTABLE. ONLY FOR TEST USAGE.
 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Shiny-Ladybug/florr-auto-afk/build-python.yml?style=for-the-badge) ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/Shiny-Ladybug/florr-auto-afk?style=for-the-badge) ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Shiny-Ladybug/florr-auto-afk/total?style=for-the-badge) ![GitHub Release](https://img.shields.io/github/v/release/Shiny-Ladybug/florr-auto-afk?style=for-the-badge)
 
@@ -49,6 +53,16 @@ Also, the release version is only for **WINDOWS** and **CPU ONLY** users.
 If you want to run the script on MacOS or Linux, then sadly, you can only use v1.1.1.
 
 By the way, you can build your own GPU version here by installing `torch-gpu`.
+
+## Extensions
+
+> Unstable test zone
+
+Using websocket and Tampermonkey to get and modify florr.io canvas methods.
+
+Make sure you turn Developer mode on in Browser Settings.
+
+Install `./extension.js` into the browser and turn something suspicious on in `./config.json`.
 
 ## Config
 

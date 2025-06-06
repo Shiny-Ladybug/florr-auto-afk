@@ -1,5 +1,6 @@
 from gui_utils import *
 import multiprocessing
+import experimental
 
 
 def test_idle_thread(idled_flag, suppress_idle_detection, shared_logger, not_stop_event):
@@ -40,16 +41,13 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
         afk_det_model = YOLO(get_config()["yoloConfig"]["detModel"])
         debugger("Loaded YOLO models")
     except:
-        log_ret("YOLO models are corrupted, trying to restore files",
-                "ERROR", shared_logger)
+        log("YOLO models are corrupted, trying to restore files", "ERROR")
         remove(get_config()["yoloConfig"]["segModel"])
         remove(get_config()["yoloConfig"]["detModel"])
         remove("./models/version")
         return
     debugger("Loaded configs", get_config())
-    test_environment(afk_seg_model, afk_det_model)
-    log_ret("YOLO Test Time results saved to ./latest.log",
-            "INFO", shared_logger, save=False)
+    test_environment(afk_seg_model, afk_det_model, shared_logger)
     log_ret("恭喜你，你成功把代码跑起来了，你是这个👍", "EVENT", shared_logger, save=False)
     countdown = get_config()["runs"]["runningCountDown"]
     if countdown == -1:
@@ -78,22 +76,24 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 np.array(image), cv2.COLOR_RGB2BGR)
             ori_image = image.copy()
 
-            ready_button = locate_ready(image)
-            if ready_button is not None:
-                multiprocessing.Process(
-                    target=send_notification, args=("AFK Detection Failed",)).start()
-                multiprocessing.Process(
-                    target=send_sound_notification, args=(3,)).start()
-                with suppress_idle_detection.get_lock():
-                    suppress_idle_detection.value = True
-                pyautogui.click(
-                    ready_button[0], ready_button[1], button='left')
-                with suppress_idle_detection.get_lock():
-                    suppress_idle_detection.value = False
-                log_ret("AFK detection failed", "EVENT", shared_logger)
-                debugger("AFK detection failed, ready button found", ready_button)
-                sleep(1)
-                continue
+            if get_config()["runs"]["rejoin"]:
+                ready_button = locate_ready(image)
+                if ready_button is not None:
+                    multiprocessing.Process(
+                        target=send_notification, args=("AFK Detection Failed",)).start()
+                    multiprocessing.Process(
+                        target=send_sound_notification, args=(3,)).start()
+                    with suppress_idle_detection.get_lock():
+                        suppress_idle_detection.value = True
+                    pyautogui.click(
+                        ready_button[0], ready_button[1], button='left')
+                    with suppress_idle_detection.get_lock():
+                        suppress_idle_detection.value = False
+                    log_ret("AFK detection failed", "EVENT", shared_logger)
+                    debugger(
+                        "AFK detection failed, ready button found", ready_button)
+                    sleep(1)
+                    continue
 
             afk_window_pos = detect_afk_window(image, afk_det_model)
             if afk_window_pos is None:
@@ -108,26 +108,32 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 continue
             log_ret("Found AFK window", "EVENT", shared_logger)
             debugger("Found AFK window")
+
+            if get_config()["extensions"]["enable"]:
+                if get_config()["extensions"]["bgRemove"]:
+                    log_ret("Blocking alpha channel", "EVENT", shared_logger)
+                    experimental.switch_block_alpha(True)
+                if get_config()["extensions"]["uploadPath"]:
+                    experimental.switch_send(True)
+                sleep(get_config()["extensions"]["swapInterval"])
+
             multiprocessing.Process(
                 target=send_notification, args=("AFK Detected",)).start()
             multiprocessing.Process(
                 target=send_sound_notification, args=(3,)).start()
 
-            if get_config()["executeBinary"]["runBeforeAFK"] != "":
-                try:
-                    system("start "+get_config()
-                           ["executeBinary"]["runBeforeAFK"])
-                except:
-                    log_ret("Cannot execute extra binary", "ERROR")
-
             save_image(image, "afk", "afk")
             left_top_bound, right_bottom_bound = afk_window_pos
             debugger("Bounds", afk_window_pos)
-            if get_config()["exposure"]["enable"]:
+            if get_config()["extensions"]["enable"] and get_config()["extensions"]["bgRemove"]:
+                image = crop_image(
+                    left_top_bound, right_bottom_bound, cv2.cvtColor(
+                        np.array(pyautogui.screenshot()), cv2.COLOR_RGB2BGR))
+                save_image(image, "extension", "afk")
+            elif get_config()["exposure"]["enable"]:
                 if get_config()["exposure"]["moveInterval"] > 0:
                     multiprocessing.Process(
-                        target=move_a_bit, args=(get_config()["exposure"]["moveInterval"], 4,)).start()
-                sleep(2)
+                        target=move_a_bit, args=(get_config()["exposure"]["moveInterval"],)).start()
                 image = exposure_image(
                     left_top_bound, right_bottom_bound, get_config()["exposure"]["duration"])
                 save_image(image, "exposure", "afk")
@@ -149,34 +155,35 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                     np.array(image), cv2.COLOR_RGBA2RGB)
                 ori_image = image.copy()
 
-                ready_button = locate_ready(image)
-                if ready_button is not None:
-                    multiprocessing.Process(
-                        target=send_notification, args=("AFK Detection Failed",)).start()
-                    multiprocessing.Process(
-                        target=send_sound_notification, args=(3,)).start()
+                if get_config()["runs"]["rejoin"]:
+                    ready_button = locate_ready(image)
+                    if ready_button is not None:
+                        multiprocessing.Process(
+                            target=send_notification, args=("AFK Detection Failed",)).start()
+                        multiprocessing.Process(
+                            target=send_sound_notification, args=(3,)).start()
 
-                    now_windows: list[gw.Win32Window] = gw.getWindowsWithTitle(
-                        "")
-                    for w in now_windows:
-                        if w._hWnd == window['hwnd']:
-                            debugger("Activating window",
-                                     window['hwnd'], w.title)
-                            w.activate()
-                            break
-                    with suppress_idle_detection.get_lock():
-                        suppress_idle_detection.value = True
-                    pyautogui.click(
-                        ready_button[0], ready_button[1], button='left')
-                    with suppress_idle_detection.get_lock():
-                        suppress_idle_detection.value = False
-                    pyautogui.hotkey('alt', 'tab')
+                        now_windows: list[gw.Win32Window] = gw.getWindowsWithTitle(
+                            "")
+                        for w in now_windows:
+                            if w._hWnd == window['hwnd']:
+                                debugger("Activating window",
+                                         window['hwnd'], w.title)
+                                w.activate()
+                                break
+                        with suppress_idle_detection.get_lock():
+                            suppress_idle_detection.value = True
+                        pyautogui.click(
+                            ready_button[0], ready_button[1], button='left')
+                        with suppress_idle_detection.get_lock():
+                            suppress_idle_detection.value = False
+                        pyautogui.hotkey('alt', 'tab')
 
-                    log_ret("AFK detection failed", "EVENT", shared_logger)
-                    debugger(
-                        "AFK detection failed, ready button found", ready_button)
-                    sleep(1)
-                    continue
+                        log_ret("AFK detection failed", "EVENT", shared_logger)
+                        debugger(
+                            "AFK detection failed, ready button found", ready_button)
+                        sleep(1)
+                        continue
 
                 afk_window_pos = detect_afk_window(image, afk_det_model)
                 if afk_window_pos is None:
@@ -185,21 +192,29 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 log_ret(
                     f"Found AFK window in {window['title']}", "EVENT", shared_logger)
 
+                if get_config()["extensions"]["enable"]:
+                    if get_config()["extensions"]["bgRemove"]:
+                        log_ret("Blocking alpha channel",
+                                "EVENT", shared_logger)
+                        experimental.switch_block_alpha(True)
+                    if get_config()["extensions"]["uploadPath"]:
+                        experimental.switch_send(True)
+                    sleep(get_config()["extensions"]["swapInterval"])
+
                 multiprocessing.Process(
                     target=send_notification, args=("AFK Detected",)).start()
                 multiprocessing.Process(
                     target=send_sound_notification, args=(3,)).start()
 
-                if get_config()["executeBinary"]["runBeforeAFK"] != "":
-                    try:
-                        system("start "+get_config()
-                               ["executeBinary"]["runBeforeAFK"])
-                    except:
-                        log_ret("Cannot execute extra binary", "ERROR")
                 save_image(image, "afk", "afk")
                 debugger("Bounds", afk_window_pos)
                 left_top_bound, right_bottom_bound = afk_window_pos
-                if get_config()["exposure"]["enable"]:
+                if get_config()["extensions"]["enable"] and get_config()["extensions"]["bgRemove"]:
+                    image = crop_image(
+                        left_top_bound, right_bottom_bound, cv2.cvtColor(
+                            np.array(pyautogui.screenshot()), cv2.COLOR_RGB2BGR))
+                    save_image(image, "extension", "afk")
+                elif get_config()["exposure"]["enable"]:
                     image = exposure_image(
                         left_top_bound, right_bottom_bound, get_config()["exposure"]["duration"], window["hwnd"], window["capture_method"])
                     save_image(image, "exposure", "afk")
@@ -307,15 +322,16 @@ def execute_afk(afk_window_pos, ori_image, image, afk_seg_model, afk_det_model, 
             move_a_bit()
         sleep(1)
         pyautogui.hotkey('alt', 'tab')
-    if get_config()["executeBinary"]["runAfterAFK"] != "":
-        try:
-            system("start "+get_config()["executeBinary"]["runAfterAFK"])
-        except:
-            log_ret("Cannot execute extra binary", "ERROR", shared_logger)
+
     if get_config()["advanced"]["useOBS"]:
         sleep(1)
         obs("stop")
     debugger("`execute_afk` finished")
+
+    if get_config()["extensions"]["enable"]:
+        if get_config()["extensions"]["bgRemove"]:
+            log_ret("Restoring background", "EVENT", shared_logger)
+            experimental.switch_block_alpha(False)
 
 
 def run_segment(idled_flag, suppress_idle_detection, shared_logger, capture_windows, stop_segment_event):
@@ -727,6 +743,12 @@ if __name__ == "__main__":
         version = constants.VERSION_INFO
     else:
         version = f"{constants.VERSION_INFO} {constants.VERSION_TYPE}.{constants.SUB_VERSION}"
+
+    if get_config()["extensions"]["enable"]:
+        log("Attempting to start extension server", "INFO")
+        import server
+        multiprocessing.Process(
+            target=server.start_extension_server, args=()).start()
 
     with multiprocessing.Manager() as manager:
         shared_logger = manager.list()

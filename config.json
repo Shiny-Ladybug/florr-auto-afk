@@ -3,6 +3,7 @@
         "autoTakeOverWhenIdle": false,
         "runningCountDown": -1,
         "moveAfterAFK": true,
+        "rejoin": true,
         "idleTimeThreshold": 10,
         "idleDetInterval": 3,
         "idleDetIntervalMax": 10,
@@ -11,13 +12,22 @@
         "soundPath": "./gui/notify.mp3"
     },
     "exposure": {
-        "enable": true,
+        "enable": false,
         "moveInterval": 0.25,
         "duration": 3
     },
     "gui": {
         "language": "en-us",
         "theme": "auto"
+    },
+    "extensions": {
+        "enable": true,
+        "host": "0.0.0.0",
+        "port": 8000,
+        "defaultRoute": "/ws",
+        "swapInterval": 2,
+        "bgRemove": true,
+        "uploadPath": false
     },
     "advanced": {
         "saveTrainData": true,
@@ -31,18 +41,14 @@
         "saveYOLOImage": true,
         "extendLength": 30,
         "mouseSpeed": 100,
-        "skipUpdate": false,
-        "environment": false,
+        "skipUpdate": true,
+        "environment": true,
         "debug": false,
         "windowSizeTolerance": 0.1,
         "windowSizeRatio": [
             0.787,
             1
         ]
-    },
-    "executeBinary": {
-        "runBeforeAFK": "",
-        "runAfterAFK": ""
     },
     "yoloConfig": {
         "segModel": "./models/afk-seg.pt",
