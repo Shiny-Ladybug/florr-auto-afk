@@ -20,7 +20,7 @@ from skimage.morphology import skeletonize as skimage_skeletonize
 from capture import gdi, bitblt, wgc
 from ultralytics import YOLO
 from tarfile import open as tar_open
-from github import Github
+from github import Github, GithubIntegration
 from uuid import uuid4
 from heapq import heappop, heappush
 
@@ -575,7 +575,7 @@ def test_environment(afk_seg_model, afk_det_model, shared_logger):
     t_det_win = time()
     cropped_image = crop_image(
         afk_window_pos[0], afk_window_pos[1], image)
-    start_p, end_p, start_size = detect_afk_things(
+    start_p, end_p, start_size, pack = detect_afk_things(
         cropped_image, afk_det_model, caller="")
     t_det_things = time()
     res = get_masks_by_iou(cropped_image, afk_seg_model)
@@ -711,16 +711,21 @@ def detect_afk_things(cropped_img, afk_det_model, caller="main", test_time=None)
     start_pos = end_pos = None
     start_max_confidence = end_max_confidence = 0
     start_size = 0
+    pack = [None, None]
     for thing in things_afk[0]:
         if thing['name'] == 'Start' and thing['confidence'] > start_max_confidence:
             start_pos = (thing['x_avg'], thing['y_avg'])
             start_max_confidence = thing['confidence']
             start_size = (abs(thing['x_2'] - thing['x_1']) +
                           abs(thing['y_2'] - thing['y_1'])) / 2
+            pack[0] = [(thing['x_1'], thing['y_1']),
+                       (thing['x_2'], thing['y_2'])]
         if thing['name'] == 'End' and thing['confidence'] > end_max_confidence:
             end_pos = (thing['x_avg'], thing['y_avg'])
             end_max_confidence = thing['confidence']
-    return start_pos, end_pos, start_size
+            pack[1] = [(thing['x_1'], thing['y_1']),
+                       (thing['x_2'], thing['y_2'])]
+    return start_pos, end_pos, start_size, pack
 
 
 def move_a_bit(interval=0.15, epochs=1):
@@ -786,10 +791,9 @@ def get_masks_by_iou(image, afk_seg_model: YOLO, lower_iou=0.3, upper_iou=0.7, s
     return mask, results
 
 
-def export_result_to_dataset(results, image, epsilon=1):
+def export_segmentation_to_label(results, image, now, epsilon=1):
     if results[0].masks is None:
         return
-    now = int(time())
     image_height, image_width, _ = image.shape
     debugger("Exporting result to dataset", now, image_height, image_width)
     labelme_data = {
@@ -817,20 +821,28 @@ def export_result_to_dataset(results, image, epsilon=1):
                 "mask": None
             }
             labelme_data["shapes"].append(shape_entry)
-    if not path.exists("./train"):
-        mkdir("./train")
-    if not path.exists("./train/images"):
-        mkdir("./train/images")
-    if not path.exists("./train/split"):
-        mkdir("./train/split")
+    return labelme_data
 
-    cv2.imwrite(f"./train/images/{now}.png", image)
-    with open(f"./train/split/{now}.json", "w") as f:
-        dump(labelme_data, f, indent=4)
-    with tar_open("./train/train.tar.gz", "w:gz") as tar:
-        tar.add("./train/images", arcname="images")
-        tar.add("./train/split", arcname="split")
-    return labelme_data, now
+
+def export_detection_to_label(packs, image, now):
+    """
+    classes = ["Window", "Start", "End"]
+    """
+    h, w = image.shape[:2]
+    result = []
+    for cls_idx, pack in enumerate(packs):
+        if pack is None:
+            continue
+        (x1, y1), (x2, y2) = pack
+        bw = (x2 - x1) / w
+        bh = (y2 - y1) / h
+        cx = (x1 + x2) / 2 / w
+        cy = (y1 + y2) / 2 / h
+        result.append({
+            "class": cls_idx,
+            "position": [cx, cy, bw, bh],
+        })
+    return result
 
 
 def check_config(shared_logger):
@@ -949,18 +961,28 @@ def gh_upload_file(repo, target_path, content, message):
         )
 
 
-def gh_upload_dataset(create_time, label):
-    g = Github(constants.GITHUB_TOKEN)
+def gh_upload_dataset(now):
+    app_id = 1375071
+    private_key = constants.GITHUB_TOKEN
+    integration = GithubIntegration(app_id, private_key)
+    install = integration.get_repo_installation(
+        constants.DATASET_REPO.split('/')[0], constants.DATASET_REPO.split('/')[1])
+    token = integration.get_access_token(install.id).token
+    g = Github(token)
     repo = g.get_repo(constants.DATASET_REPO)
     alias = str(uuid4()).replace("-", "")
     date = datetime.now().strftime("%Y-%m-%dT%H_%M_%SZ")
-    with open(f"./train/images/{create_time}.png", "rb") as f:
+    with open(f"./train/images/{now}.png", "rb") as f:
         img_bytes = f.read()
-    label_bytes = dumps(label, ensure_ascii=False,
-                        indent=2).encode('utf-8')
+    with open(f"./train/split/{now}.json", "r", encoding='utf-8') as f:
+        seg_label_bytes = f.read().encode('utf-8')
+    with open(f"./train/detection/{now}.txt", "r", encoding='utf-8') as f:
+        det_label_bytes = f.read().encode('utf-8')
     gh_upload_file(repo, f"./{alias}/{alias}.png",
                    img_bytes, f"{date} {alias[:5]} Image")
     gh_upload_file(repo, f"./{alias}/{alias}.json",
-                   label_bytes, f"{date} {alias[:5]} Label")
+                   seg_label_bytes, f"{date} {alias[:5]} Seg")
+    gh_upload_file(repo, f"./{alias}/{alias}.txt",
+                   det_label_bytes, f"{date} {alias[:5]} Det")
     log(f"Uploaded dataset to GitHub with hash {alias}", "INFO")
     return alias

@@ -17,7 +17,7 @@ def inference(image):
         return
     cropped_image = crop_image(
         afk_window_pos[0], afk_window_pos[1], image)
-    start_p, end_p, start_size = detect_afk_things(
+    start_p, end_p, start_size, pack = detect_afk_things(
         cropped_image, afk_det_model, caller="")
     position = start_p, end_p, afk_window_pos, start_size
     res = get_masks_by_iou(cropped_image, afk_seg_model)

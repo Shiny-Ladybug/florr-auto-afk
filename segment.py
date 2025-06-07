@@ -237,7 +237,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
 
 def execute_afk(afk_window_pos, ori_image, image, afk_seg_model, afk_det_model, suppress_idle_detection, shared_logger, type="fullscreen", hwnd=None):
     res = get_masks_by_iou(image, afk_seg_model)
-    start_p, end_p, start_size = detect_afk_things(
+    start_p, end_p, start_size, pack = detect_afk_things(
         image, afk_det_model, caller="main")
     if res is None:
         log_ret("No masks found", "ERROR", shared_logger)
@@ -282,8 +282,10 @@ def execute_afk(afk_window_pos, ori_image, image, afk_seg_model, afk_det_model, 
 
     ori_image = draw_annotated_image(
         ori_image, line, start_p, end_p, afk_window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length(), afk_path.get_difficulty(), afk_path.sort_method)
+    packs = [
+        [(0, 0), (image.shape[1], image.shape[0])], pack[0], pack[1]]
 
-    threading_save(image_, results_, afk_path.get_difficulty())
+    threading_save(image_, results_, packs, afk_path.get_difficulty())
 
     save_image(ori_image, "afk_solution", "afk")
 
@@ -434,7 +436,7 @@ def start_test(frame, file_path: str):
         frame, f"Test result: Found AFK window, results saved to ./test/{test_time}")
     cropped_image = crop_image(
         afk_window_pos[0], afk_window_pos[1], image)
-    start_p, end_p, start_size = detect_afk_things(
+    start_p, end_p, start_size, pack = detect_afk_things(
         cropped_image, afk_det_model, caller="test", test_time=test_time)
     position = start_p, end_p, afk_window_pos, start_size
     res = get_masks_by_iou(cropped_image, afk_seg_model)
@@ -704,14 +706,43 @@ def update_page(new_page_stat):
         start_test_button.pack(side="bottom", pady=10)
 
 
-def threading_save(image, results, difficulty):
+def threading_save(image, results, packs, difficulty):
     if get_config()["advanced"]["saveTrainData"]:
-        label, create_time = export_result_to_dataset(results, image)
+        now = int(time())
+        seg_label = export_segmentation_to_label(results, image, now)
+        det_label = export_detection_to_label(packs, image, now)
+        if not path.exists("./train"):
+            mkdir("./train")
+        if not path.exists("./train/images"):
+            mkdir("./train/images")
+        if not path.exists("./train/split"):
+            mkdir("./train/split")
+        if not path.exists("./train/detection"):
+            mkdir("./train/detection")
+        if not path.exists("./train/detection/classes.txt"):
+            classes = ["Window", "Start", "End"]
+            with open("./train/detection/classes.txt", "w") as f:
+                for cls in classes:
+                    f.write(cls + "\n")
+        cv2.imwrite(f"./train/images/{now}.png", image)
+        with open(f"./train/split/{now}.json", "w") as f:
+            dump(seg_label, f, indent=4)
+        with open(f"./train/detection/{now}.txt", "w") as f:
+            for item in det_label:
+                f.write(
+                    f"{item['class']} "
+                    f"{item['position'][0]:.6f} {item['position'][1]:.6f} "
+                    f"{item['position'][2]:.6f} {item['position'][3]:.6f}\n"
+                )
+        with tar_open("./train/train.tar.gz", "w:gz") as tar:
+            tar.add("./train/images", arcname="images")
+            tar.add("./train/split", arcname="split")
+
         if check_eula():
-            if difficulty > 15:
+            if difficulty > 0:
                 try:
                     multiprocessing.Process(
-                        target=gh_upload_dataset, args=(create_time, label,)).start()
+                        target=gh_upload_dataset, args=(now,)).start()
                 except:
                     log("Failed to upload dataset to GitHub", "ERROR")
 

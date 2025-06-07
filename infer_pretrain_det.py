@@ -4,39 +4,27 @@ import os
 import json
 
 afk_det_model = YOLO("./models/afk-det.pt")
-afk_seg_model = YOLO("./models/afk-seg.pt")
 
 
-def export_result_to_label(results, image, epsilon=1, path=None):
-    if results[0].masks is None:
-        return
-    image_height, image_width, _ = image.shape
-    labelme_data = {
-        "version": "5.6.0",
-        "flags": {},
-        "shapes": [],
-        "imagePath": path,
-        "imageData": None,
-        "imageHeight": image_height,
-        "imageWidth": image_width
-    }
-    if results and results[0].masks:
-        for i in range(len(results[0].masks)):
-            original_polygon_points = results[0].masks.xy[i]
-            simplified_polygon_np = rdp(
-                original_polygon_points, epsilon=epsilon)
-            simplified_polygon_points = simplified_polygon_np.tolist()
-            shape_entry = {
-                "label": "path",
-                "points": simplified_polygon_points,
-                "group_id": None,
-                "description": "",
-                "shape_type": "polygon",
-                "flags": {},
-                "mask": None
-            }
-            labelme_data["shapes"].append(shape_entry)
-    return labelme_data
+def export_detection_to_label(packs, image):
+    """
+    classes = ["Window", "Start", "End"]
+    """
+    h, w = image.shape[:2]
+    result = []
+    for cls_idx, pack in enumerate(packs):
+        if pack is None:
+            continue
+        (x1, y1), (x2, y2) = pack
+        bw = (x2 - x1) / w
+        bh = (y2 - y1) / h
+        cx = (x1 + x2) / 2 / w
+        cy = (y1 + y2) / 2 / h
+        result.append({
+            "class": cls_idx,
+            "position": [cx, cy, bw, bh],
+        })
+    return result
 
 
 def inference(image, image_path):
@@ -45,20 +33,21 @@ def inference(image, image_path):
         return
     cropped_image = crop_image(
         afk_window_pos[0], afk_window_pos[1], image)
-    start_p, end_p, start_size = detect_afk_things(
+    start_p, end_p, start_size, pack = detect_afk_things(
         cropped_image, afk_det_model, caller="")
-    position = start_p, end_p, afk_window_pos, start_size
-    res = get_masks_by_iou(cropped_image, afk_seg_model)
-    if res is None:
-        return
-    mask, results = res
-    label = export_result_to_label(results, cropped_image, path=image_path)
-    return label, cropped_image
+    packs = [
+        [(0, 0), (cropped_image.shape[1], cropped_image.shape[0])], pack[0], pack[1]]
+    return export_detection_to_label(packs, cropped_image), cropped_image
 
 
 def inference_flow(images_path, outputs_path):
+    classes = ["Window", "Start", "End"]
     if not os.path.exists(outputs_path):
         os.makedirs(outputs_path)
+    if not os.path.exists(os.path.join(outputs_path, "classes.txt")):
+        with open(os.path.join(outputs_path, "classes.txt"), "w") as f:
+            for item in classes:
+                f.write(item + "\n")
     images = os.listdir(images_path)
     images = [image for image in images if image.endswith(
         ('.jpg', '.png', '.jpeg'))]
@@ -73,17 +62,22 @@ def inference_flow(images_path, outputs_path):
         label, cropped_image = res
         if label is None:
             continue
-        label_name = os.path.splitext(image_name)[0] + ".json"
+        label_name = os.path.splitext(image_name)[0] + ".txt"
         label_path = os.path.join(outputs_path, label_name)
         with open(label_path, "w") as f:
-            json.dump(label, f, indent=4)
+            for item in label:
+                f.write(
+                    f"{item['class']} "
+                    f"{item['position'][0]:.6f} {item['position'][1]:.6f} "
+                    f"{item['position'][2]:.6f} {item['position'][3]:.6f}\n"
+                )
         cv2.imwrite(os.path.join(outputs_path, image_name), cropped_image)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-i", "--image_path", type=str, default="./saves", help="Path to the image(s) to be processed")
+        "-i", "--image_path", type=str, default="./test", help="Path to the image(s) to be processed")
     parser.add_argument(
         "-o", "--output_path", type=str, default="./outputs", help="Path to save the output image(s)")
     args = parser.parse_args()
