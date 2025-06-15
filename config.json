@@ -41,8 +41,8 @@
         "saveYOLOImage": true,
         "extendLength": 30,
         "mouseSpeed": 100,
-        "skipUpdate": true,
-        "environment": true,
+        "skipUpdate": false,
+        "environment": false,
         "debug": false,
         "windowSizeTolerance": 0.1,
         "windowSizeRatio": [
@@ -52,6 +52,6 @@
     },
     "yoloConfig": {
         "segModel": "./models/afk-seg.pt",
-        "detModel": "./models/afk-det.pt"
+        "detModel": "./models/afk-det-experimental.pt"
     }
 }

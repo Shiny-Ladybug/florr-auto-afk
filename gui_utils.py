@@ -13,7 +13,6 @@ from win11toast import toast
 from playsound import playsound
 from copy import deepcopy
 import sv_ttk
-import json
 import ctypes
 from webbrowser import open as open_url
 import tkinter as tk
@@ -73,7 +72,7 @@ def create_scrollable_frame(parent):
 
 def save_config_to_file(config_data, file_path="./config.json"):
     with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(config_data, f, indent=4, ensure_ascii=False)
+        dump(config_data, f, indent=4, ensure_ascii=False)
 
 
 def load_translations(lang="en-us"):
@@ -109,12 +108,12 @@ def create_settings_widgets(parent, config_data, parent_key=""):
             label.pack(anchor="w", pady=5)
             ToolTip(label, msg=tips, delay=0.2)
             entry = ttk.Entry(parent)
-            entry.insert(0, json.dumps(value))
+            entry.insert(0, dumps(value))
             entry.pack(fill="x", pady=2)
 
             def update_list(event, key=key):
                 try:
-                    config_data[key] = json.loads(entry.get())
+                    config_data[key] = loads(entry.get())
                     parent_key = None
                     for k, v in config.items():
                         if list(v.keys()) == list(config_data.keys()):
@@ -123,7 +122,7 @@ def create_settings_widgets(parent, config_data, parent_key=""):
                     if parent_key:
                         config[parent_key] = config_data
                     save_config_to_file(config)
-                except json.JSONDecodeError:
+                except Exception as e:
                     pass
             entry.bind("<Return>", update_list)
             entry.bind("<FocusOut>", update_list)
@@ -339,6 +338,8 @@ def draw_version(image, width, height):
 
     if constants.VERSION_TYPE == "Release":
         version = constants.VERSION_INFO
+    elif constants.VERSION_TYPE == "Pre-Release":
+        version = f"{constants.VERSION_INFO} Preview.{constants.SUB_VERSION}"
     else:
         version = f"{constants.VERSION_INFO} {constants.VERSION_TYPE}.{constants.SUB_VERSION}"
     rounded_image = draw_text_pil(
@@ -774,7 +775,7 @@ def send_sound_notification(epoch: int = 3):
 
 def get_random_background():
     with open("./gui/backgrounds/structure.json", "r") as f:
-        structure = json.load(f)
+        structure = load(f)
     weights = [bg["weight"] for bg in structure]
     selected_bg = choices(structure, weights=weights, k=1)[0]
     return selected_bg
@@ -804,3 +805,28 @@ def show_share_warn(force: bool = False):
     shared = messagebox.askquestion('Save Datasets',
                                     'Are you sure you want to share the datasets?\nThis will not share your personal information.\nYou can also set this in Settings Page.\nCheck the shared datasets in https://github.com/Shiny-Ladybug/florr-afk')
     save_eula(shared == "yes")
+
+
+def get_installed_extensions():
+    extensions = listdir("./extensions")
+    response = []
+    for ext in extensions:
+        if path.exists(f"./extensions/{ext}/registry.json") and path.exists(f"./extensions/{ext}/main.lua"):
+            with open(f"./extensions/{ext}/registry.json", "r") as f:
+                registry = load(f)
+            if registry["name"].strip() == ext.strip():
+                response.append(registry)
+            else:
+                log(
+                    f"Extension \"{registry['name']}\" registry name mismatch folder name \"{ext}\"", "ERROR", save=False)
+    return response
+
+
+def on_extension_toggle(name: str, enabled: bool):
+    conf = get_installed_extensions()
+    for ext in conf:
+        if ext["name"] == name:
+            ext["enabled"] = enabled
+            with open(f"./extensions/{name}/registry.json", "w") as f:
+                f.write(dumps(ext, indent=4, ensure_ascii=False))
+            return

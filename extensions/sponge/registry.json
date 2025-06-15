@@ -1,0 +1,19 @@
+{
+    "name": "sponge",
+    "description": "Auto switch sponge when health is low",
+    "author": "114514",
+    "version": "1.1.4",
+    "enabled": false,
+    "events": [
+        "florrHealth"
+    ],
+    "args": [
+        "health_ping['health']",
+        "health_speed",
+        "inventory"
+    ],
+    "imports": [
+        "pyautogui",
+        "time"
+    ]
+}

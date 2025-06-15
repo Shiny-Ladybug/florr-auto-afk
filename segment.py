@@ -126,9 +126,11 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
             left_top_bound, right_bottom_bound = afk_window_pos
             debugger("Bounds", afk_window_pos)
             if get_config()["extensions"]["enable"] and get_config()["extensions"]["bgRemove"]:
+                image = cv2.cvtColor(
+                    np.array(pyautogui.screenshot()), cv2.COLOR_RGB2BGR)
+                save_image(image, "full", "extension")
                 image = crop_image(
-                    left_top_bound, right_bottom_bound, cv2.cvtColor(
-                        np.array(pyautogui.screenshot()), cv2.COLOR_RGB2BGR))
+                    left_top_bound, right_bottom_bound, image)
                 save_image(image, "extension", "afk")
             elif get_config()["exposure"]["enable"]:
                 if get_config()["exposure"]["moveInterval"] > 0:
@@ -210,9 +212,10 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                 debugger("Bounds", afk_window_pos)
                 left_top_bound, right_bottom_bound = afk_window_pos
                 if get_config()["extensions"]["enable"] and get_config()["extensions"]["bgRemove"]:
+                    image = cv2.cvtColor(
+                        np.array(pyautogui.screenshot()), cv2.COLOR_RGB2BGR)
                     image = crop_image(
-                        left_top_bound, right_bottom_bound, cv2.cvtColor(
-                            np.array(pyautogui.screenshot()), cv2.COLOR_RGB2BGR))
+                        left_top_bound, right_bottom_bound, image)
                     save_image(image, "extension", "afk")
                 elif get_config()["exposure"]["enable"]:
                     image = exposure_image(
@@ -242,6 +245,8 @@ def execute_afk(afk_window_pos, ori_image, image, afk_seg_model, afk_det_model, 
     if res is None:
         log_ret("No masks found", "ERROR", shared_logger)
         save_image(image, "mask", "error")
+        experimental.switch_block_alpha(False)
+
         return
     position = start_p, end_p, afk_window_pos, start_size
     mask, results = res
@@ -483,10 +488,9 @@ def destroy_label():
 
 def show_label(frame, text, color="base"):
     global error_label
-    theme = get_theme()
     destroy_label()
     if color == "base":
-        if theme == "Dark":
+        if get_theme() == "Dark":
             color = "#ffffff"
         else:
             color = "#000000"
@@ -704,6 +708,55 @@ def update_page(new_page_stat):
         choose_button.pack(side="left", anchor="w")
         start_test_button.config(style="Accent.TButton")
         start_test_button.pack(side="bottom", pady=10)
+    elif page_stat == "extension":
+        def make_toggle_callback(name: str, var: tk.BooleanVar):
+            def _callback():
+                on_extension_toggle(name, var.get())
+            return _callback
+        scrollable_frame = create_scrollable_frame(main_content)
+        installed_extensions = get_installed_extensions()
+        for ext in installed_extensions:
+            ext_frame = ttk.Frame(scrollable_frame)
+            ext_frame.pack(fill="x", pady=(5, 0), padx=10)
+
+            left_frame = ttk.Frame(ext_frame)
+            left_frame.pack(side="left", fill="x", expand=True)
+
+            name_label = ttk.Label(
+                left_frame,
+                text=ext['name'],
+                font=("Microsoft Yahei", 14, "bold"),
+                foreground="#ffffff" if get_theme() == "Dark" else "#000000"
+            )
+            name_label.pack(anchor="w")
+
+            description_label = ttk.Label(
+                left_frame,
+                text=f"> {ext['description']}",
+                font=("Microsoft Yahei", 10),
+                foreground="#B0B0B0" if get_theme() == "Dark" else "#333333"
+            )
+            description_label.pack(anchor="w", pady=(0, 2))
+
+            meta_label = ttk.Label(
+                left_frame,
+                text=f"Author: {ext['author']}    Version: {ext['version']}",
+                font=("Microsoft Yahei", 10),
+                foreground="#B0B0B0" if get_theme() == "Dark" else "#333333"
+            )
+            meta_label.pack(anchor="w", pady=(0, 2))
+
+            enabled_var = tk.BooleanVar(value=ext['enabled'])
+            toggle_btn = ttk.Checkbutton(
+                ext_frame,
+                text="Enabled",
+                variable=enabled_var,
+                command=make_toggle_callback(ext['name'], enabled_var)
+            )
+            toggle_btn.pack(side="right", padx=20)
+
+            separator = ttk.Separator(scrollable_frame, orient="horizontal")
+            separator.pack(fill="x", pady=5, padx=10)
 
 
 def threading_save(image, results, packs, difficulty):
@@ -739,7 +792,7 @@ def threading_save(image, results, packs, difficulty):
             tar.add("./train/split", arcname="split")
 
         if check_eula():
-            if difficulty > 0:
+            if difficulty > 15 or get_config()["extensions"]["bgRemove"]:
                 try:
                     multiprocessing.Process(
                         target=gh_upload_dataset, args=(now,)).start()
@@ -749,7 +802,8 @@ def threading_save(image, results, packs, difficulty):
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()
-
+    print(
+        f"florr-auto-afk v{constants.VERSION_INFO}({constants.VERSION_TYPE}.{constants.SUB_VERSION}) {constants.RELEASE_DATE}")
     error_label, filepath_label = None, None
     filepath = ""
     stop_event = multiprocessing.Event()
@@ -772,6 +826,8 @@ if __name__ == "__main__":
 
     if constants.VERSION_TYPE == "Release":
         version = constants.VERSION_INFO
+    elif constants.VERSION_TYPE == "Pre-Release":
+        version = f"{constants.VERSION_INFO} Preview.{constants.SUB_VERSION}"
     else:
         version = f"{constants.VERSION_INFO} {constants.VERSION_TYPE}.{constants.SUB_VERSION}"
 
@@ -808,6 +864,9 @@ if __name__ == "__main__":
         test_button = ttk.Button(
             sidebar, text=get_ui_translation("page_test"), width=20, command=lambda: update_page("test"))
         test_button.pack(pady=10)
+        extension_button = ttk.Button(
+            sidebar, text=get_ui_translation("page_extensions"), width=20, command=lambda: update_page("extension"))
+        extension_button.pack(pady=10)
         settings_button = ttk.Button(
             sidebar, text=get_ui_translation("page_settings"), width=20, command=lambda: update_page("settings"))
         settings_button.pack(side="bottom", pady=10)

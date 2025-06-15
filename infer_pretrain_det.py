@@ -27,17 +27,23 @@ def export_detection_to_label(packs, image):
     return result
 
 
-def inference(image, image_path):
+def inference(image):
     afk_window_pos = detect_afk_window(image, afk_det_model)
     if afk_window_pos is None:
         return
     cropped_image = crop_image(
-        afk_window_pos[0], afk_window_pos[1], image)
+        afk_window_pos[0], afk_window_pos[1], image.copy())
     start_p, end_p, start_size, pack = detect_afk_things(
         cropped_image, afk_det_model, caller="")
+    if pack[0] is not None:
+        pack[0] = [(afk_window_pos[0][0]+pack[0][0][0], afk_window_pos[0][1]+pack[0][0][1]),
+                   (afk_window_pos[0][0]+pack[0][1][0], afk_window_pos[0][1]+pack[0][1][1])]
+    if pack[1] is not None:
+        pack[1] = [(afk_window_pos[0][0]+pack[1][0][0], afk_window_pos[0][1]+pack[1][0][1]),
+                   (afk_window_pos[0][0]+pack[1][1][0], afk_window_pos[0][1]+pack[1][1][1])]
     packs = [
-        [(0, 0), (cropped_image.shape[1], cropped_image.shape[0])], pack[0], pack[1]]
-    return export_detection_to_label(packs, cropped_image), cropped_image
+        afk_window_pos, pack[0], pack[1]]
+    return export_detection_to_label(packs, image), image
 
 
 def inference_flow(images_path, outputs_path):
@@ -54,8 +60,7 @@ def inference_flow(images_path, outputs_path):
     for image_name in images:
         image_path = os.path.join(images_path, image_name)
         image = cv2.imread(image_path)
-        res = inference(
-            image, os.path.abspath(os.path.join(outputs_path, image_name)))
+        res = inference(image)
         if res is None:
             print(f"Image {image_name} has no AFK detected.")
             continue
@@ -77,7 +82,7 @@ def inference_flow(images_path, outputs_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-i", "--image_path", type=str, default="./test", help="Path to the image(s) to be processed")
+        "-i", "--image_path", type=str, default="./extension", help="Path to the image(s) to be processed")
     parser.add_argument(
         "-o", "--output_path", type=str, default="./outputs", help="Path to save the output image(s)")
     args = parser.parse_args()

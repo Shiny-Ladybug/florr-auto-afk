@@ -4,7 +4,7 @@ from matplotlib import use
 import cv2
 import pyautogui
 from psutil import Process, virtual_memory, cpu_freq
-from json import load, dump, dumps
+from json import load, dump, dumps, loads
 from sys import _getframe, getwindowsversion
 from os import path, mkdir, remove, listdir
 import numpy as np

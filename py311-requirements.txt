@@ -26,3 +26,4 @@ playsound==1.2.2
 win11toast
 pygithub
 zbl
+lupa

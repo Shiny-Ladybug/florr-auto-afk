@@ -3,6 +3,7 @@ page_console=Console
 page_hooks=Hooks
 page_history=History
 page_test=Test
+page_extensions=Extensions
 page_settings=Settings
 launch_announcements=Announcements
 launch_run=Run

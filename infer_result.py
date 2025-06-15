@@ -68,7 +68,7 @@ def inference_flow(images_path):
         return
 
     resized_images = []
-    max_side = 100
+    max_side = 500
     for img in annotated_images_list:
         h, w = img.shape[:2]
         scale = max_side / max(h, w)
@@ -111,7 +111,7 @@ def inference_flow(images_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-i", "--image_path", type=str, default="./raw", help="Path to the image(s) to be processed")
+        "-i", "--image_path", type=str, default="./extension", help="Path to the image(s) to be processed")
     args = parser.parse_args()
     if not os.path.exists(args.image_path):
         raise FileNotFoundError(
