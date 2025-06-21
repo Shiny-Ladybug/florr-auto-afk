@@ -27,7 +27,40 @@
         "defaultRoute": "/ws",
         "swapInterval": 2,
         "bgRemove": true,
-        "uploadPath": false
+        "uploadPath": false,
+        "autoChat": {
+            "enable": false,
+            "selfUsername": "enter <username> here or chat will respond to your own messages",
+            "chatType": "ollama",
+            "chatEndpoint": "http://localhost:11434/api/chat",
+            "chatAPIKey": "<YOUR_API_KEY>",
+            "chatModel": "qwen3:14b",
+            "chatKeepAlive": -1,
+            "historyMaxLength": 15,
+            "chatEnableThink": false,
+            "enableFullControl": false,
+            "chatWhitelist": [],
+            "chatBlacklist": [
+                "^Guest",
+                "^Unnamed"
+            ],
+            "chatScope": [
+                "Local"
+            ],
+            "chatMaxDistance": null,
+            "chatRandomResponses": [
+                "hi",
+                "wtf",
+                "?",
+                "wow",
+                "????"
+            ],
+            "fullControl": {
+                "followDuration": 10000,
+                "steps": 5
+            }
+        },
+        "autoCalibrate": false
     },
     "advanced": {
         "saveTrainData": true,
@@ -52,6 +85,6 @@
     },
     "yoloConfig": {
         "segModel": "./models/afk-seg.pt",
-        "detModel": "./models/afk-det-experimental.pt"
+        "detModel": "./models/afk-det.pt"
     }
 }

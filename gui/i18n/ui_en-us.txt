@@ -15,3 +15,6 @@ capture_winname=Capture Window
 capture_windows=Windows
 capture_method=Capture Method
 capture_add=Add
+extension_no=No Connection
+extension_yes=Connected
+extension_disabled=Disabled

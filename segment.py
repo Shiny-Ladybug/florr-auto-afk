@@ -133,9 +133,6 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                     left_top_bound, right_bottom_bound, image)
                 save_image(image, "extension", "afk")
             elif get_config()["exposure"]["enable"]:
-                if get_config()["exposure"]["moveInterval"] > 0:
-                    multiprocessing.Process(
-                        target=move_a_bit, args=(get_config()["exposure"]["moveInterval"],)).start()
                 image = exposure_image(
                     left_top_bound, right_bottom_bound, get_config()["exposure"]["duration"])
                 save_image(image, "exposure", "afk")
@@ -709,6 +706,20 @@ def update_page(new_page_stat):
         start_test_button.config(style="Accent.TButton")
         start_test_button.pack(side="bottom", pady=10)
     elif page_stat == "extension":
+        def open_extensions_folder():
+            folder = path.abspath("./extensions")
+            startfile(folder)
+
+        top_button_frame = ttk.Frame(main_content)
+        top_button_frame.pack(fill="x", pady=(10, 0), padx=10)
+        show_explorer_btn = ttk.Button(
+            top_button_frame,
+            text="Show in explorer",
+            command=open_extensions_folder
+        )
+        show_explorer_btn.pack(side="right")
+        show_explorer_btn.config(style="Accent.TButton")
+
         def make_toggle_callback(name: str, var: tk.BooleanVar):
             def _callback():
                 on_extension_toggle(name, var.get())
@@ -867,13 +878,45 @@ if __name__ == "__main__":
         extension_button = ttk.Button(
             sidebar, text=get_ui_translation("page_extensions"), width=20, command=lambda: update_page("extension"))
         extension_button.pack(pady=10)
+
+        status_frame = ttk.Frame(sidebar)
+        status_canvas = tk.Canvas(
+            status_frame, width=10, height=10, bd=0, highlightthickness=0)
+        status_label = ttk.Label(
+            status_frame, text="", font=("Microsoft Yahei", 9), foreground="#ffffff" if get_theme() == "Dark" else "#000000")
+
+        def update_connection_status():
+            if not status_frame.winfo_exists():
+                return
+            if get_config()['extensions']['enable']:
+                if experimental.get_connected():
+                    color = "green"
+                    text = get_ui_translation("extension_yes")
+                else:
+                    color = "red"
+                    text = get_ui_translation("extension_no")
+            else:
+                color = "grey"
+                text = get_ui_translation("extension_disabled")
+
+            status_canvas.delete("all")
+            status_canvas.create_oval(0, 0, 10, 10, fill=color, outline=color)
+            status_label.config(text=text)
+            root.after(get_config()['extensions']
+                       ['swapInterval']*1000, update_connection_status)
+
+        status_frame.pack(side="bottom", pady=(5, 10), anchor="w", fill="x")
+        status_canvas.pack(side="left", padx=(0, 10))
+        status_label.pack(side="left")
+
         settings_button = ttk.Button(
             sidebar, text=get_ui_translation("page_settings"), width=20, command=lambda: update_page("settings"))
-        settings_button.pack(side="bottom", pady=10)
+        settings_button.pack(side="bottom", pady=0)
         main_content = ttk.Frame(root)
         main_content.pack(side="left", fill="both", expand=True)
 
         update_page(page_stat)
+        update_connection_status()
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
         ScaleFactor = ctypes.windll.shcore.GetScaleFactorForDevice(0)
         root.tk.call('tk', 'scaling', ScaleFactor/75)

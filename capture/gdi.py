@@ -1,7 +1,5 @@
 import ctypes
 import pygetwindow as gw
-import time
-import cv2
 import numpy as np
 from ctypes import windll
 import win32gui

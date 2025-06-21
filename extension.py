@@ -1,29 +1,30 @@
 import json
-from lupa import LuaRuntime
 import traceback
-lua = LuaRuntime(unpack_returned_tuples=True)
+import asyncio
 
 
 def load_extension(name):
     with open(f"./extensions/{name}/registry.json", "r") as f:
         registry = json.load(f)
-
-    with open(f"./extensions/{name}/main.lua", "r") as f:
-        code = f.read()
-    return registry, code
+    return registry
 
 
-def execute_extension(registry, code, args):
+async def execute_extension(registry, args):
     try:
-        lua.execute(code)
-        imports = registry.get("imports", [])
-        if isinstance(imports, str):
-            imports = [imports]
-        for module_name in imports:
-            module = __import__(module_name)
-            lua.globals()[module_name] = module
-
-        return lua.globals().main(*args)
-    except Exception as e:
-        traceback.print_exc()
+        module = __import__(
+            f"extensions.{registry['name']}.main", fromlist=[''])
+        if hasattr(module, 'main'):
+            ret = await module.main(*args)
+            return ret
+        else:
+            raise AttributeError(
+                f"The module '{registry['name']}' does not have a 'main' function.")
+    except ImportError as e:
+        print(
+            f"Error importing module '{registry['name']}': {e}")
         return None
+    except Exception as e:
+        print(
+            f"An error occurred while executing the extension '{registry['name']}': {e}")
+        traceback.print_exc()
+    return None

@@ -6,7 +6,7 @@ import pyautogui
 from psutil import Process, virtual_memory, cpu_freq
 from json import load, dump, dumps, loads
 from sys import _getframe, getwindowsversion
-from os import path, mkdir, remove, listdir
+from os import path, mkdir, remove, listdir, startfile
 import numpy as np
 from datetime import datetime
 from time import sleep, time
@@ -23,7 +23,7 @@ from tarfile import open as tar_open
 from github import Github, GithubIntegration
 from uuid import uuid4
 from heapq import heappop, heappush
-
+from random import randint, uniform, choice, shuffle
 console = Console()
 
 use('Agg')
@@ -728,20 +728,99 @@ def detect_afk_things(cropped_img, afk_det_model, caller="main", test_time=None)
     return start_pos, end_pos, start_size, pack
 
 
-def move_a_bit(interval=0.15, epochs=1):
-    for _ in range(epochs):
-        pyautogui.keyDown("w")
-        sleep(interval)
-        pyautogui.keyUp("w")
-        pyautogui.keyDown("d")
-        sleep(interval)
-        pyautogui.keyUp("d")
-        pyautogui.keyDown("s")
-        sleep(interval)
-        pyautogui.keyUp("s")
-        pyautogui.keyDown("a")
-        sleep(interval)
-        pyautogui.keyUp("a")
+def move_a_bit(
+    interval_min=0.1,
+    interval_max=0.3,
+    epochs=3,
+    num_outgoing_moves_range=(1, 3),
+    return_segments_per_axis_range=(1, 2),
+    min_return_segment_duration=0.05,
+    pause_between_moves_range=(0.05, 0.15)
+):
+    def _generate_segments(total_duration, num_segments_desired, min_len_segment):
+        if total_duration < 1e-9:
+            return []
+
+        num_segments = max(1, num_segments_desired)
+
+        if total_duration < min_len_segment * num_segments:
+            num_segments = max(1, int(total_duration / min_len_segment))
+
+        if num_segments == 1:
+            return [total_duration] if total_duration > 1e-9 else []
+        base_allocations = [min_len_segment] * num_segments
+        remaining_to_distribute = total_duration - sum(base_allocations)
+
+        if remaining_to_distribute < 0:
+            return [total_duration] if total_duration > 1e-9 else []
+
+        durations = list(base_allocations)
+
+        weights = [uniform(0.0, 1.0) for _ in range(num_segments)]
+        sum_weights = sum(weights)
+
+        if sum_weights < 1e-9:
+            avg_add = remaining_to_distribute / num_segments if num_segments > 0 else 0
+            for i in range(num_segments):
+                durations[i] += avg_add
+        else:
+            for i in range(num_segments):
+                durations[i] += (weights[i] / sum_weights) * \
+                    remaining_to_distribute
+        return [d for d in durations if d > 1e-9]
+
+    directions = ["w", "d", "s", "a"]
+    for epoch_num in range(epochs):
+        net_displacement_time = {'w': 0.0, 's': 0.0, 'a': 0.0, 'd': 0.0}
+        num_moves = randint(
+            num_outgoing_moves_range[0], num_outgoing_moves_range[1])
+        for _ in range(num_moves):
+            dir_key = choice(directions)
+            duration = uniform(interval_min, interval_max)
+
+            pyautogui.keyDown(dir_key)
+            sleep(duration)
+            pyautogui.keyUp(dir_key)
+
+            net_displacement_time[dir_key] += duration
+            sleep(
+                uniform(pause_between_moves_range[0], pause_between_moves_range[1]))
+        delta_ws = net_displacement_time['w'] - net_displacement_time['s']
+        delta_ad = net_displacement_time['d'] - net_displacement_time['a']
+        return_actions_needed = []
+        if delta_ws > 1e-9:
+            return_actions_needed.append(('s', delta_ws))
+        elif delta_ws < -1e-9:
+            return_actions_needed.append(('w', -delta_ws))
+        if delta_ad > 1e-9:
+            return_actions_needed.append(('a', delta_ad))
+        elif delta_ad < -1e-9:
+            return_actions_needed.append(('d', -delta_ad))
+
+        if not return_actions_needed:
+            continue
+
+        return_path_segments = []
+        for return_dir, total_duration_needed in return_actions_needed:
+            if total_duration_needed <= 1e-9:
+                continue
+            num_segments = randint(
+                return_segments_per_axis_range[0], return_segments_per_axis_range[1])
+
+            segments_for_this_dir = _generate_segments(
+                total_duration_needed, num_segments, min_return_segment_duration)
+
+            for seg_dur in segments_for_this_dir:
+                if seg_dur > 1e-9:
+                    return_path_segments.append((return_dir, seg_dur))
+
+        shuffle(return_path_segments)
+        for dir_key, duration in return_path_segments:
+            pyautogui.keyDown(dir_key)
+            sleep(duration)
+            pyautogui.keyUp(dir_key)
+            sleep(
+                uniform(pause_between_moves_range[0], pause_between_moves_range[1]))
 
 
 def exposure_image(left_top_bound, right_bottom_bound, duration, hwnd=None, capture_method=None):
@@ -879,6 +958,9 @@ def check_config(shared_logger):
         log_ret(f"Invalid RDP Epsilon Expression: {config['advanced']['rdpEpsilon']}",
                 "CRITICAL", shared_logger, save=False)
         raise e
+    if config['extensions']['autoChat']['selfUsername'] == "enter <username> here or chat will respond to your own messages" and config['extensions']['autoChat']:
+        log_ret("You have not set your username in the config, chat will not work",
+                "ERROR", shared_logger, save=False)
 
 
 def draw_annotated_image(ori_image, line, start_p, end_p, window_pos, start_color, path_width, path_length, difficulty, sort_method) -> cv2.Mat:
@@ -916,9 +998,9 @@ def draw_annotated_image(ori_image, line, start_p, end_p, window_pos, start_colo
 
     cv2.putText(image, f'Method: {sort_method}', (window_pos[0][0]+10, window_pos[1][1]-46), cv2.FONT_HERSHEY_SIMPLEX,
                 0.5, (255, 255, 255))
-    cv2.putText(image, f'Difficulty: {round(difficulty*100)/100}', (window_pos[0][0]+10, window_pos[1][1]-28), cv2.FONT_HERSHEY_SIMPLEX,
+    cv2.putText(image, f'Difficulty: {round(difficulty,2)}', (window_pos[0][0]+10, window_pos[1][1]-28), cv2.FONT_HERSHEY_SIMPLEX,
                 0.5, (255, 255, 255))
-    cv2.putText(image, f'P_w: {round(path_width*100)/100}, P_l: {round(path_length*100)/100}', (window_pos[0][0]+10, window_pos[1][1]-10), cv2.FONT_HERSHEY_SIMPLEX,
+    cv2.putText(image, f'P_w: {round(path_width,2)}, P_l: {round(path_length,2)}', (window_pos[0][0]+10, window_pos[1][1]-10), cv2.FONT_HERSHEY_SIMPLEX,
                 0.5, (255, 255, 255))
     return image
 

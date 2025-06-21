@@ -15,3 +15,6 @@ capture_winname=捕获
 capture_windows=窗口
 capture_method=捕获方式
 capture_add=添加
+extension_no=未连接
+extension_yes=已连接
+extension_disabled=已禁用插件

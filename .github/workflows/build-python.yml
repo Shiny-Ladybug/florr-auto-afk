@@ -74,9 +74,16 @@ jobs:
         shell: powershell
         run: |
           Copy-Item -Path ./config.json -Destination ./dist/segment/config.json
+          Copy-Item -Path ./extension.swap.json -Destination ./dist/segment/extension.swap.json
+          Copy-Item -Path ./conversation.json -Destination ./dist/segment/conversation.json
+          Copy-Item -Path ./README.md -Destination ./dist/segment/README.md
+          Copy-Item -Path ./LICENSE -Destination ./dist/segment/LICENSE
+          Copy-Item -Path ./DEVELOPMENT.MD -Destination ./dist/segment/DEVELOPMENT.MD
+          Copy-Item -Path ./extension.js -Destination ./dist/segment/extension.js
           New-Item -Path ./dist/segment/imgs -ItemType Directory
           Copy-Item -Path ./imgs/test.png -Destination ./dist/segment/imgs/test.png
           Copy-Item -Path ./models -Destination ./dist/segment/models -Recurse
+          Copy-Item -Path ./extensions -Destination ./dist/segment/extensions -Recurse
           Copy-Item -Path ./gui -Destination ./dist/segment/gui -Recurse
           echo "Compressing ./dist/segment directory into a ZIP file..."
           Compress-Archive -Path ./dist/segment/* -DestinationPath ./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.zip

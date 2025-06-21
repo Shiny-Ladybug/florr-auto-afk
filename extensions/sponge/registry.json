@@ -11,9 +11,5 @@
         "health_ping['health']",
         "health_speed",
         "inventory"
-    ],
-    "imports": [
-        "pyautogui",
-        "time"
     ]
 }

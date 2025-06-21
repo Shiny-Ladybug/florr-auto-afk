@@ -70,9 +70,17 @@ def create_scrollable_frame(parent):
     return scrollable_frame
 
 
-def save_config_to_file(config_data, file_path="./config.json"):
+def save_config_key(full_key, value, file_path="./config.json"):
+    config_data: dict = get_config()
+    keys = full_key.split(".")
+    current_level = config_data
+    for key in keys[:-1]:
+        if key not in current_level:
+            current_level[key] = {}
+        current_level = current_level[key]
+    current_level[keys[-1]] = value
     with open(file_path, "w", encoding="utf-8") as f:
-        dump(config_data, f, indent=4, ensure_ascii=False)
+        f.write(dumps(config_data, indent=4, ensure_ascii=False))
 
 
 def load_translations(lang="en-us"):
@@ -89,7 +97,7 @@ def translate(key, translations):
     return translations.get(key, key)
 
 
-def create_settings_widgets(parent, config_data, parent_key=""):
+def create_settings_widgets(parent, config_data, parent_key="", level=0):
     global theme, translations, config
     translations = load_translations(get_config()["gui"]["language"])
     for key, value in config_data.items():
@@ -97,178 +105,166 @@ def create_settings_widgets(parent, config_data, parent_key=""):
         display_key = translate(full_key, translations)
         tips = get_settings_tips(full_key)
         if isinstance(value, dict):
+            font_size = max(14 - level * 2, 10)
             label = ttk.Label(
-                parent, text=f"> {display_key}:", font=("Microsoft Yahei", 14, "bold"))
-            label.pack(anchor="w", pady=5)
+                parent, text=f"> {display_key}:", font=("Microsoft Yahei", font_size, "bold"))
+            label.pack(anchor="w", pady=5, padx=(level * 20, 0))
             ToolTip(label, msg=tips, delay=0.2)
-            create_settings_widgets(parent, value, full_key)
-        elif isinstance(value, list):
-            label = ttk.Label(
-                parent, text=f"{display_key}:", font=("Microsoft Yahei", 10))
-            label.pack(anchor="w", pady=5)
-            ToolTip(label, msg=tips, delay=0.2)
-            entry = ttk.Entry(parent)
-            entry.insert(0, dumps(value))
-            entry.pack(fill="x", pady=2)
-
-            def update_list(event, key=key):
-                try:
-                    config_data[key] = loads(entry.get())
-                    parent_key = None
-                    for k, v in config.items():
-                        if list(v.keys()) == list(config_data.keys()):
-                            parent_key = k
-                            break
-                    if parent_key:
-                        config[parent_key] = config_data
-                    save_config_to_file(config)
-                except Exception as e:
-                    pass
-            entry.bind("<Return>", update_list)
-            entry.bind("<FocusOut>", update_list)
-        elif isinstance(value, bool):
-            var = tk.BooleanVar(value=value)
-            checkbutton = ttk.Checkbutton(
-                parent, text=display_key, variable=var)
-            checkbutton.pack(anchor="w", pady=5)
-            ToolTip(checkbutton, msg=tips, delay=0.2)
-            checkbutton_font = ("Microsoft Yahei", 10)
-            checkbutton.configure(style="Custom.TCheckbutton")
-            style = ttk.Style()
-            style.configure("Custom.TCheckbutton", font=checkbutton_font)
-
-            def update_bool(*args, key=key, var=var):
-                global config
-                config_data[key] = var.get()
-                parent_key = None
-                for k, v in config.items():
-                    if list(v.keys()) == list(config_data.keys()):
-                        parent_key = k
-                        break
-                if parent_key:
-                    config[parent_key] = config_data
-                save_config_to_file(config)
-                if key == "saveTrainData":
-                    if var.get():
-                        show_share_warn(True)
-            var.trace_add("write", update_bool)
-
-        elif isinstance(value, (int, float)):
-            label = ttk.Label(
-                parent, text=f"{display_key}:", font=("Microsoft Yahei", 10))
-            label.pack(anchor="w", pady=5)
-            ToolTip(label, msg=tips, delay=0.2)
-            entry = ttk.Entry(parent)
-            entry.insert(0, str(value))
-            entry.pack(fill="x", pady=2)
-
-            def validate_entry_input(P):
-                if P == "" or P == "-":
-                    return True
-                try:
-                    float(P)
-                    return True
-                except ValueError:
-                    return False
-
-            validate_cmd = parent.register(validate_entry_input)
-            entry.config(validate="key", validatecommand=(validate_cmd, "%P"))
-
-            def update_number(event=None, key=key, entry=entry):
-                try:
-                    current_value = entry.get()
-                    if current_value == "" or current_value == ".":
-                        return
-                    new_value = int(current_value) if "." not in current_value else float(
-                        current_value)
-                    config_data[key] = new_value
-                    parent_key = None
-                    for k, v in config.items():
-                        if list(v.keys()) == list(config_data.keys()):
-                            parent_key = k
-                            break
-                    if parent_key:
-                        config[parent_key] = config_data
-                    save_config_to_file(config)
-                except ValueError:
-                    pass
-            entry.bind("<FocusOut>", update_number)
-            entry.bind("<Return>", update_number)
+            create_settings_widgets(parent, value, full_key, level + 1)
         else:
-            if full_key == "gui.language":
+            item_frame = ttk.Frame(parent)
+            item_frame.pack(fill="x", anchor="w", padx=(level * 20, 0))
+
+            if isinstance(value, list):
                 label = ttk.Label(
-                    parent, text=f"{display_key}:", font=("Microsoft Yahei", 10))
+                    item_frame, text=f"{display_key}:", font=("Microsoft Yahei", 10))
                 label.pack(anchor="w", pady=5)
                 ToolTip(label, msg=tips, delay=0.2)
-                entry = ttk.Combobox(
-                    parent,
-                    values=["en-us", "zh-cn"],
-                    state="readonly",
-                    font=("Microsoft Yahei", 10),
-                )
-                entry.set(value)
+                entry = ttk.Entry(item_frame)
+                entry.insert(0, dumps(value))
                 entry.pack(fill="x", pady=2)
 
-                def update_language(event=None, key=key, entry=entry):
-                    config_data[key] = entry.get()
-                    parent_key = None
-                    for k, v in config.items():
-                        if list(v.keys()) == list(config_data.keys()):
-                            parent_key = k
-                            break
-                    if parent_key:
-                        config[parent_key] = config_data
-                    save_config_to_file(config)
-                entry.bind("<FocusOut>", update_language)
-                entry.bind("<Return>", update_language)
-            elif full_key == "gui.theme":
-                label = ttk.Label(
-                    parent, text=f"{display_key}:", font=("Microsoft Yahei", 10))
-                label.pack(anchor="w", pady=5)
-                ToolTip(label, msg=tips, delay=0.2)
-                entry = ttk.Combobox(
-                    parent,
-                    values=["auto", "dark", "light"],
-                    state="readonly",
-                    font=("Microsoft Yahei", 10),
-                )
-                entry.set(value)
-                entry.pack(fill="x", pady=2)
+                def update_list(event, key=key, entry=entry, full_key=full_key):
+                    try:
+                        new_value = loads(entry.get())
+                        config_data[key] = new_value
+                        save_config_key(full_key, new_value)
+                    except Exception as e:
+                        pass
+                entry.bind("<Return>", update_list)
+                entry.bind("<FocusOut>", update_list)
+            elif isinstance(value, bool):
+                var = tk.BooleanVar(value=value)
+                checkbutton = ttk.Checkbutton(
+                    item_frame, text=display_key, variable=var)
+                checkbutton.pack(anchor="w", pady=5)
+                ToolTip(checkbutton, msg=tips, delay=0.2)
+                checkbutton_font = ("Microsoft Yahei", 10)
+                checkbutton.configure(style="Custom.TCheckbutton")
+                style = ttk.Style()
+                style.configure("Custom.TCheckbutton", font=checkbutton_font)
 
-                def update_theme(event=None, key=key, entry=entry):
-                    config_data[key] = entry.get()
-                    parent_key = None
-                    for k, v in config.items():
-                        if list(v.keys()) == list(config_data.keys()):
-                            parent_key = k
-                            break
-                    if parent_key:
-                        config[parent_key] = config_data
-                    save_config_to_file(config)
-                entry.bind("<FocusOut>", update_theme)
-                entry.bind("<Return>", update_theme)
-            else:
+                def update_bool(*args, key=key, var=var, full_key=full_key):
+                    global config
+                    config_data[key] = var.get()
+                    save_config_key(full_key, var.get())
+                    if key == "saveTrainData":
+                        if var.get():
+                            show_share_warn(True)
+                var.trace_add("write", update_bool)
+
+            elif isinstance(value, (int, float)):
                 label = ttk.Label(
-                    parent, text=f"{display_key}:", font=("Microsoft Yahei", 10))
+                    item_frame, text=f"{display_key}:", font=("Microsoft Yahei", 10))
                 label.pack(anchor="w", pady=5)
                 ToolTip(label, msg=tips, delay=0.2)
-                entry = ttk.Entry(parent)
+                entry = ttk.Entry(item_frame)
                 entry.insert(0, str(value))
                 entry.pack(fill="x", pady=2)
 
-                def update_other(event, key=key, entry=entry):
-                    config_data[key] = entry.get()
-                    parent_key = None
-                    for k, v in config.items():
-                        if list(v.keys()) == list(config_data.keys()):
-                            parent_key = k
-                            break
-                    if parent_key:
-                        config[parent_key] = config_data
-                    save_config_to_file(config)
+                def validate_entry_input(P):
+                    if P == "" or P == "-":
+                        return True
+                    try:
+                        float(P)
+                        return True
+                    except ValueError:
+                        return False
 
-                entry.bind("<FocusOut>", update_other)
-                entry.bind("<Return>", update_other)
+                validate_cmd = parent.register(validate_entry_input)
+                entry.config(validate="key", validatecommand=(
+                    validate_cmd, "%P"))
+
+                def update_number(event=None, key=key, entry=entry, full_key=full_key):
+                    try:
+                        current_value = entry.get()
+                        if current_value == "" or current_value == ".":
+                            return
+                        new_value = int(
+                            current_value) if "." not in current_value else float(current_value)
+
+                        config_data[key] = new_value
+                        save_config_key(full_key, new_value)
+                    except ValueError:
+                        pass
+                entry.bind("<FocusOut>", update_number)
+                entry.bind("<Return>", update_number)
+            else:
+                if full_key == "gui.language":
+                    label = ttk.Label(
+                        item_frame, text=f"{display_key}:", font=("Microsoft Yahei", 10))
+                    label.pack(anchor="w", pady=5)
+                    ToolTip(label, msg=tips, delay=0.2)
+                    entry = ttk.Combobox(
+                        item_frame,
+                        values=["en-us", "zh-cn"],
+                        state="readonly",
+                        font=("Microsoft Yahei", 10),
+                    )
+                    entry.set(value)
+                    entry.pack(fill="x", pady=2)
+
+                    def update_language(event=None, key=key, entry=entry, full_key=full_key):
+                        config_data[key] = entry.get()
+                        save_config_key(full_key, entry.get())
+
+                    entry.bind("<FocusOut>", update_language)
+                    entry.bind("<Return>", update_language)
+                elif full_key == "gui.theme":
+                    label = ttk.Label(
+                        item_frame, text=f"{display_key}:", font=("Microsoft Yahei", 10))
+                    label.pack(anchor="w", pady=5)
+                    ToolTip(label, msg=tips, delay=0.2)
+                    entry = ttk.Combobox(
+                        item_frame,
+                        values=["auto", "dark", "light"],
+                        state="readonly",
+                        font=("Microsoft Yahei", 10),
+                    )
+                    entry.set(value)
+                    entry.pack(fill="x", pady=2)
+
+                    def update_theme(event=None, key=key, entry=entry, full_key=full_key):
+                        config_data[key] = entry.get()
+                        save_config_key(full_key, entry.get())
+
+                    entry.bind("<FocusOut>", update_theme)
+                    entry.bind("<Return>", update_theme)
+                elif full_key == "extensions.autoChat.chatType":
+                    label = ttk.Label(
+                        item_frame, text=f"{display_key}:", font=("Microsoft Yahei", 10))
+                    label.pack(anchor="w", pady=5)
+                    ToolTip(label, msg=tips, delay=0.2)
+                    entry = ttk.Combobox(
+                        item_frame,
+                        values=["ollama", "random", "openai"],
+                        state="readonly",
+                        font=("Microsoft Yahei", 10),
+                    )
+                    entry.set(value)
+                    entry.pack(fill="x", pady=2)
+
+                    def update_chat_type(event=None, key=key, entry=entry, full_key=full_key):
+                        config_data[key] = entry.get()
+                        save_config_key(full_key, entry.get())
+
+                    entry.bind("<FocusOut>", update_chat_type)
+                    entry.bind("<Return>", update_chat_type)
+                else:
+                    label = ttk.Label(
+                        item_frame, text=f"{display_key}:", font=("Microsoft Yahei", 10))
+                    label.pack(anchor="w", pady=5)
+                    ToolTip(label, msg=tips, delay=0.2)
+                    entry = ttk.Entry(item_frame)
+                    entry.insert(0, str(value))
+                    entry.pack(fill="x", pady=2)
+
+                    def update_other(event, key=key, entry=entry, full_key=full_key):
+                        config_data[key] = entry.get()
+                        save_config_key(full_key, entry.get())
+
+                    entry.bind("<FocusOut>", update_other)
+                    entry.bind("<Return>", update_other)
 
 
 def create_fill_image(image, width, height):
@@ -811,7 +807,7 @@ def get_installed_extensions():
     extensions = listdir("./extensions")
     response = []
     for ext in extensions:
-        if path.exists(f"./extensions/{ext}/registry.json") and path.exists(f"./extensions/{ext}/main.lua"):
+        if path.exists(f"./extensions/{ext}/registry.json") and path.exists(f"./extensions/{ext}/main.py"):
             with open(f"./extensions/{ext}/registry.json", "r") as f:
                 registry = load(f)
             if registry["name"].strip() == ext.strip():

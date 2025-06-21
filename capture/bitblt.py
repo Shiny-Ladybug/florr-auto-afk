@@ -1,9 +1,6 @@
-import time
 from ctypes import windll, byref, c_ubyte
 from ctypes.wintypes import RECT, HWND
 import numpy as np
-import cv2
-import pygetwindow as gw
 
 GetDC = windll.user32.GetDC
 CreateCompatibleDC = windll.gdi32.CreateCompatibleDC

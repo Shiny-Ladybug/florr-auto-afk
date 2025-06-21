@@ -8,7 +8,7 @@ Anyway I want to say is comments are not allowed in JSON, the comments here are 
 
 > ./extensions  
 > └─ demo  
->         main.lua  
+>         main.py  
 >         registry.json  
 
 ### registry.json
@@ -20,19 +20,26 @@ Anyway I want to say is comments are not allowed in JSON, the comments here are 
     "author": "<YOUR NAME>",
     "version": "1.1.4.5.1.4 or other something",
     "enabled": true,
-    "events": [], // to declare when the extension should run, available choices are "florrHealth" and "florrSlots"
+    "events": [], // to declare when the extension should run, available choices are "florrHealth", "florrSlots", "florrMessages", "florrSquads" and "florrPosition"
     "args": [], // what args in Python will pass to the extension
-    "imports": [] // what packages to import from Python, so that you can execute PyAutoGUI in Lua
 }
 ```
 
-### main.lua
+### main.py
 
-```lua
-function main(args) -- the args are declared in registry.json
-	print(args)
-    print("I am running")
-end
+```python
+import asyncio # must import asyncio to prevent throttling
+import pyautogui # then import modules manually here
+
+async def main(args):
+    asyncio.sleep(0.1) # must use asyncio.sleep instead of time.sleep
+    print(args)
+```
+
+## Internal Commands
+
+```python
+await websocket.send_json({"command": "showInfo", "info": "Hello World", "color": "#0969da50", "duration": 3000})
 ```
 
 ## Events & Args
@@ -101,10 +108,130 @@ Format:
     "secondary": [
         "Egg",
         "Egg",
-        None, // null or nil in JSON and Lua
+        None, // null in JSON
         "Egg",
         "Egg"
     ]
+}
+```
+
+### florrMessages
+
+Upload chat messages when there's a new chat messsage
+
+All available variables are `chat_ping` and `assembled_chat`
+
+#### chat_ping: dict
+
+Format:
+
+```json
+{
+    "type": "florrMessages",
+    "content": {
+        "area": "Local", // "Local", "Squad", "Guild"
+        "user": "<username>",
+        "message": "<text>",
+        "userPosition": { // this may be null (None)
+            "x": 214.35,
+            "y": 124.14,
+            "distance": 247.7
+        }
+    }
+}
+```
+
+#### assembled_chat: str
+
+Format:
+
+```
+[Local] <username>: <text>
+```
+
+### florrSquads
+
+Positions: [0, 62000] x+, y+
+
+The squad information
+
+All available variable is `squad_ping`
+
+#### squad_ping: dict
+
+This is an 2-people squad as an example
+
+Format:
+
+```json
+{
+    "type": "florrSquads",
+    "positions": [
+        {
+            "x": 21590.51,
+            "y": 25295.6,
+            "type": "self" // this is your own position
+        },
+        {
+            "x": 28251.93,
+            "y": 25392.24,
+            "type": "squad" // this is one of your squad mate's position
+        }
+    ]
+}
+```
+
+### florrPosition
+
+Positions: [0, 62000] x+, y+
+
+The position you are at
+
+All available variables are `position_ping`, `self_position` and `position_speed`
+
+#### position_ping: dict
+
+Format:
+
+```json
+{"type": "florrPosition", "position": {"x": 21638.91, "y": 25333.28}}
+```
+
+#### self_position: tuple
+
+Format:
+
+```
+(21638.91, 25333.28)
+```
+
+#### position_speed: float
+
+Just float huh.
+
+### updateTrack
+
+Users cannot control what to track.
+
+@server.py
+
+```python
+await websocket.send_json({"command": "track", "players": ["BF52", "IDontLikeToExist"]})
+```
+
+#### Return: dict
+
+```json
+{
+    "type": "updateTrack",
+    "Positions": {
+        "BF52": {
+            "x": -34.78,
+            "y": -221.57,
+            "distance": "224.28"
+        },
+        "IDontLikeToExist": null // None in Python
+    }
 }
 ```
 
@@ -128,89 +255,55 @@ An example extension of automatically switch `sponge`
         "health_ping['health']", // passing Health Percentage value
         "health_speed", // to know whether it's a good time to switch sponge
         "inventory" // to know where the sponge is
-    ],
-    "imports": [
-        "pyautogui", // import PyAutoGUI to control keyboard via Lua
-        "time" // `time` to sleep
     ]
 }
 ```
 
-### main.lua
+### main.py
 
-```lua
--- example switch load
-local function switchLoad(num)
-    pyautogui.keyDown("l") -- call Python functions for you have import it in registry.json
-    time.sleep(0.1)
-    pyautogui.write(tostring(num))
-    time.sleep(0.1)
-    pyautogui.keyUp("l")
-end
+```python
+import time
+import pyautogui
+import asyncio  # this is a must
 
-local function switchPetal(index)
-    if index == 9 then
+
+async def switchPetal(index):
+    if index == 9:
         pyautogui.write("0")
-    else
-        pyautogui.write(tostring(index + 1))
-    end
-    time.sleep(1)
-end
-
-local function userData2List(userdata)
-    if type(userdata) == "userdata" then
-        local list = {}
-        for i = 1, 10 do
-            local ok, value = pcall(function() return userdata[i] end)
-            if ok then
-                list[i] = value
-            else
-                break
-            end
-        end
-        return list
-    end
-end
-
-local function findPetal(inventory, name)
-    if not inventory or (not inventory.main and not inventory.secondary) then return nil, nil end
-    local main = userData2List(inventory.main)
-    if main then
-        for i, item in ipairs(main) do
-            if item and item == name then
-                return "main", i
-            end
-        end
-    end
-    local secondary = userData2List(inventory.secondary)
-    if secondary then
-        for i, item in ipairs(secondary) do
-            if item and item == name then
-                return "secondary", i
-            end
-        end
-    end
-    return nil, nil
-end
+    else:
+        pyautogui.write(str(index + 1))
+    await asyncio.sleep(1)
 
 
-function main(health, health_speed, inventory) -- these args are passed via Python by the registry.json
-    local spongeSlot, spongeIndex = findPetal(inventory, "Sponge")
-    if health_speed < 0 then
+def findPetal(inventory, name):
+    if not inventory or (not inventory.get("main") and not inventory.get("secondary")):
+        return None, None
+    main = inventory.get("main", [])
+    for i, item in enumerate(main):
+        if item and item == name:
+            return "main", i
+    secondary = inventory.get("secondary", [])
+    for i, item in enumerate(secondary):
+        if item and item == name:
+            return "secondary", i
+    return None, None
+
+
+async def main(health, health_speed, inventory):
+    print("Health: ", health, "Health Speed: ", health_speed)
+    spongeSlot, spongeIndex = findPetal(inventory, "Sponge")
+    if health_speed < 0:
         etaZero = health / -health_speed
-        print("ETA: " .. etaZero, "HP:" .. health)
-        if etaZero < 1.5 and spongeIndex and spongeSlot == "main" then
-            if spongeSlot == "main" then
-                print("Swapping Sponge at " .. spongeSlot .. ":" .. spongeIndex)
-                switchPetal(spongeIndex)
-                time.sleep(0.5) -- await swap
-                switchPetal(spongeIndex)
-            end
-            time.sleep(0.1) -- prevent throttling
-        elseif etaZero < 1.5 then
+        print("ETA: ", etaZero, "HP: ", health)
+        if etaZero < 1.5 and spongeIndex and spongeSlot == "main":
+            if spongeSlot == "main":
+                print(f"Switching to Sponge at main:{spongeIndex}")
+                await switchPetal(spongeIndex)
+                await asyncio.sleep(0.5)  # await swap
+                await switchPetal(spongeIndex)
+            await asyncio.sleep(0.1)  # prevent throttling
+        elif etaZero < 1.5:
             print("No Sponge found")
-        end
-    end
-end
+
 ```
 
