@@ -28,4 +28,4 @@ pygithub
 zbl
 fastapi
 pyperclip
-uvicorn
+uvicorn[standard] 
