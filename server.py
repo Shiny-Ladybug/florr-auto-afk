@@ -208,7 +208,7 @@ def start_extension_server():
     log(
         f"Extension server started on {get_config()['extensions']['host']}:{get_config()['extensions']['port']}", "EVENT")
     run(app, host=get_config()['extensions']['host'], port=get_config()[
-        'extensions']['port'], log_level="error")
+        'extensions']['port'], log_level="critical")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
