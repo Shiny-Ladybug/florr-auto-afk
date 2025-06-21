@@ -207,8 +207,13 @@ def start_extension_server():
             traceback.print_exc()
     log(
         f"Extension server started on {get_config()['extensions']['host']}:{get_config()['extensions']['port']}", "EVENT")
+
+    @app.get("/ping")
+    def ping():
+        return {"status": "ok"}
+
     run(app, host=get_config()['extensions']['host'], port=get_config()[
-        'extensions']['port'], log_level="critical")
+        'extensions']['port'], log_level="info")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
