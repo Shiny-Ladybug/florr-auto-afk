@@ -91,11 +91,11 @@ jobs:
         run: |
           mklink /D ".\dist\segment\_internal\extensions\" "..\extensions"
 
-      - name: Compress the dist directory
-        shell: powershell
+      - name: Compress files into tar.gz
+        shell: bash
         run: |
-          echo "Compressing ./dist/segment directory into a ZIP file..."
-          Compress-Archive -Path ./dist/segment/* -DestinationPath ./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.zip
+          echo "Compressing ./dist/segment directory into a tar.gz"
+          tar -czf ./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.tar.gz -C ./dist segment
 
       - name: Upload Executable to Release
         if: ${{ github.event_name == 'push' }}
@@ -109,12 +109,11 @@ jobs:
               --notes "Automated pre-release for version v${{ steps.get_version.outputs.version }}.${{ steps.get_version.outputs.versionsub }}" \
               --target main \
               --prerelease
-            gh release upload "v${{ steps.get_version.outputs.version }}.${{ steps.get_version.outputs.versionsub }}" "./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.zip" --clobber
+            gh release upload "v${{ steps.get_version.outputs.version }}.${{ steps.get_version.outputs.versionsub }}" "./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.tar.gz" --clobber
           else
             gh release create "v${{ steps.get_version.outputs.version }}" \
               --title "Release v${{ steps.get_version.outputs.version }}" \
               --notes "Automated release for version v${{ steps.get_version.outputs.version }}" \
               --target main
-            gh release upload "v${{ steps.get_version.outputs.version }}" "./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.zip" --clobber
+            gh release upload "v${{ steps.get_version.outputs.version }}" "./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.tar.gz" --clobber
           fi
-          
