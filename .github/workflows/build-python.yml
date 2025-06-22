@@ -70,7 +70,7 @@ jobs:
         run: |
           python -m PyInstaller segment.spec
 
-      - name: Creating Compressed Executable
+      - name: Copy libraries
         shell: powershell
         run: |
           Copy-Item -Path ./config.json -Destination ./dist/segment/config.json
@@ -85,6 +85,15 @@ jobs:
           Copy-Item -Path ./models -Destination ./dist/segment/models -Recurse
           Copy-Item -Path ./extensions -Destination ./dist/segment/extensions -Recurse
           Copy-Item -Path ./gui -Destination ./dist/segment/gui -Recurse
+      
+      - name: Create Symbolic Links
+        shell: cmd
+        run: |
+          mklink /D ".\dist\segment\_internal\extensions\" "..\extensions"
+
+      - name: Compress the dist directory
+        shell: powershell
+        run: |
           echo "Compressing ./dist/segment directory into a ZIP file..."
           Compress-Archive -Path ./dist/segment/* -DestinationPath ./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.zip
 

@@ -213,7 +213,7 @@ def start_extension_server():
         return {"status": "ok"}
 
     run(app, host=get_config()['extensions']['host'], port=get_config()[
-        'extensions']['port'], log_level="info")
+        'extensions']['port'], log_level="critical")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
