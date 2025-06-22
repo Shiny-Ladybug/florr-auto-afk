@@ -1,12 +1,12 @@
-# florr auto afk (v1.3.0) (2025-06-21 Pre Update)
+# florr auto afk (v1.3.0) (2025-06-22 AI Update)
 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Shiny-Ladybug/florr-auto-afk/build-python.yml?style=for-the-badge) ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/Shiny-Ladybug/florr-auto-afk?style=for-the-badge) ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Shiny-Ladybug/florr-auto-afk/total?style=for-the-badge) ![GitHub Release](https://img.shields.io/github/v/release/Shiny-Ladybug/florr-auto-afk?style=for-the-badge)
+
+> As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
 Web Page: https://shiny-ladybug.github.io
 
 For developing extensions, go check [DEVELOPMENT.MD](./DEVELOPMENT.MD)
-
-> As m28 released his new anti afk, I‘ll put my new anti-anti afk code here.
 
 > [!CAUTION]
 >
@@ -21,6 +21,8 @@ A cat told me that somehow he can't understand this README document. So I decide
 Go to [RELEASE](https://github.com/Shiny-Ladybug/florr-auto-afk/releases) and click the blue stuff that says `florr-auto-afk-v1.*.*.zip`.
 
 Then you can unzip it, put it anywhere you want, and then run the `segment.exe` file.
+
+Install `./extension.js` in Tampermonkey to enable Extensions.
 
 ### Deploy
 
@@ -54,13 +56,35 @@ By the way, you can build your own GPU version here by installing `torch-gpu`.
 
 ## Extensions
 
-> Unstable test zone
+### Internal
 
 Using websocket and Tampermonkey to get and modify florr.io canvas methods.
 
 Make sure you turn Developer mode on in Browser Settings.
 
 Install `./extension.js` into the browser and turn something suspicious on in `./config.json`.
+
+### External
+
+These extensions are stored under `./extensions`
+
+Go check [DEVELOPMENT.MD](./DEVELOPMENT.MD) for further information 
+
+## LLM Configs
+
+This will allow LLM to control your movements.
+
+Default conversations are stored under `./conversations.json`, edit them if you like
+
+All available actions are `chat`, `move`, `switch petal` and `follow`
+
+You should modify the aiChat settings manually to enable them.
+
+Using Ollama will require to install a local Ollama, visit https://ollama.com/download for further information
+
+Using OpenAI will require an openai-api-compatible endpoint to request, normally the endpoint will be like `v<Num>/completions`
+
+Using Random will not support aiChat.fullControl, they will just generate random responses.
 
 ## Config
 
@@ -76,7 +100,7 @@ Oh, and by the way, people didn't even notice that hovering above the config cho
 
 ## INFO
 
-In the latest v1.2.x version, I added background AFK Check detection support. This requires that your browser supports disabling `CalculateNativeWinOcclusion`.
+In the latest v1.2+.x version, I added background AFK Check detection support. This requires that your browser supports disabling `CalculateNativeWinOcclusion`.
 
 Details are below:
 
@@ -118,24 +142,11 @@ P.S. Sidenote: After trying the ONNX models, I think it's the worst decision I h
 
 Now those stupid codes go under the `onnx` branch.
 
-## Changelog
+## The Exposure
 
-* 2025-05-11
+As that exposure can nerf the mobs' movement effect and idle detection enables me to active (maybe kill supers) without quitting the program
 
-  Fix starting point issue, update GUI and change the notify mp3 audio, notify and press 'ready' when server close or afk fail
-* 2025-05-04
-
-  If you turn on SaveTrainableDataset in Settings > Advanced, program will save the dataset to `./train` folder, I'm welcomed to receive those datasets to improve the AFK model
-* 2025-04-26
-
-  Add background AFK Check detection support
-* 2025-04-18
-
-  Add GUI, exposure, idle detection support
-
-  As that exposure can nerf the mobs' movement effect and idle detection enables me to active (maybe kill supers) without quitting the program
-
-  ![exposure showcase](./imgs/exposure.jpg "exposure showcase")
+![exposure showcase](./imgs/exposure.jpg "exposure showcase")
 
 ## Gallery
 

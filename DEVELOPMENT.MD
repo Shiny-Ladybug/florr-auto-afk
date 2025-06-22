@@ -1,4 +1,4 @@
-# Extensions Docs
+# Extensions Docs (v1.3.0)
 
 The docs are for someone who want to create their own extensions, or maybe ~~Macros~~
 
@@ -306,4 +306,3 @@ async def main(health, health_speed, inventory):
             print("No Sponge found")
 
 ```
-

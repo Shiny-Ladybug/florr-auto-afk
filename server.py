@@ -10,7 +10,6 @@ from starlette.websockets import WebSocketDisconnect
 from experimental import log
 import traceback
 import time
-import cv2
 from json import load, dumps
 from contextlib import asynccontextmanager
 
