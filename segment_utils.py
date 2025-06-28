@@ -118,8 +118,11 @@ def log(event: str, type: str, show: bool = True, save: bool = True):
         style = "bold red"
     elif type.lower() == "event":
         style = "#ffab70"
+    elif type.lower() == "chat":
+        style = "#d46183"
     else:
         style = ""
+
     if show:
         console.print(logger, style=style)
     if save:

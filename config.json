@@ -39,13 +39,15 @@
             "historyMaxLength": 15,
             "chatEnableThink": false,
             "enableFullControl": false,
+            "chatCooldown": 5,
             "chatWhitelist": [],
             "chatBlacklist": [
                 "^Guest",
                 "^Unnamed"
             ],
             "chatScope": [
-                "Local"
+                "Local",
+                "Whisper"
             ],
             "chatMaxDistance": null,
             "chatRandomResponses": [

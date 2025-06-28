@@ -1,4 +1,4 @@
-# florr auto afk (v1.3.0) (2025-06-22 AI Update)
+# florr auto afk (v1.3.1) (2025-06-22 Update)
 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Shiny-Ladybug/florr-auto-afk/build-python.yml?style=for-the-badge) ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/Shiny-Ladybug/florr-auto-afk?style=for-the-badge) ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Shiny-Ladybug/florr-auto-afk/total?style=for-the-badge) ![GitHub Release](https://img.shields.io/github/v/release/Shiny-Ladybug/florr-auto-afk?style=for-the-badge)
 
@@ -46,7 +46,7 @@ Now you can run the code:
 python segment.py
 ```
 
-For the latest v1.2.x, you need **WINDOWS** device to run.
+For the latest v1.2.x or v1.3.x, you need **WINDOWS** device to run.
 
 Also, the release version is only for **WINDOWS** and **CPU ONLY** users.
 
@@ -76,7 +76,7 @@ This will allow LLM to control your movements.
 
 Default conversations are stored under `./conversations.json`, edit them if you like
 
-All available actions are `chat`, `move`, `switch petal` and `follow`
+All available actions are `chat`, `come up (come here)`, `move (up, right, down, left)`, `switch petal`, `join squad` and `follow`
 
 You should modify the aiChat settings manually to enable them.
 

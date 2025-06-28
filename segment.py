@@ -95,9 +95,26 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                     sleep(1)
                     continue
 
+            if get_config()["extensions"]["enable"] and experimental.get_connected():
+                if not experimental.get_aspac():
+                    debugger("No AFK window found [EXP]")
+                    if experimental.get_block_alpha():
+                        experimental.switch_block_alpha(False)
+                    if get_config()["advanced"]["verbose"]:
+                        log("No AFK window found [EXP]", "EVENT", save=False)
+                    if countdown != -1 and time() > eta_timestamp:
+                        log_ret("Countdown Ends, program exiting", "EVENT")
+                        break
+                    sleep(
+                        max(0, get_config()["advanced"]["epochInterval"] - (time() - start_time)))
+                    continue
+
             afk_window_pos = detect_afk_window(image, afk_det_model)
             if afk_window_pos is None:
                 debugger("No AFK window found")
+                experimental.set_aspac(False)
+                if experimental.get_block_alpha():
+                    experimental.switch_block_alpha(False)
                 if get_config()["advanced"]["verbose"]:
                     log("No AFK window found", "EVENT", save=False)
                 if countdown != -1 and time() > eta_timestamp:
@@ -336,6 +353,7 @@ def execute_afk(afk_window_pos, ori_image, image, afk_seg_model, afk_det_model, 
         if get_config()["extensions"]["bgRemove"]:
             log_ret("Restoring background", "EVENT", shared_logger)
             experimental.switch_block_alpha(False)
+        experimental.set_aspac(False)
 
 
 def run_segment(idled_flag, suppress_idle_detection, shared_logger, capture_windows, stop_segment_event):
@@ -519,19 +537,34 @@ def update_page(new_page_stat):
     if page_stat == "launch":
         canvas = add_rounded_image_to_canvas(
             main_content, get_random_background(), theme)
+        canvas.pack(anchor="center", pady=20)
         announcement_title = ttk.Label(
             main_content,
             text=f"{get_ui_translation('launch_announcements')}:",
             font=("Microsoft Yahei", 15),
         )
-        announcement_label = ttk.Label(
-            main_content,
-            text=announcement,
-            font=("Microsoft Yahei", 12),
-        )
-        canvas.pack(anchor="center", pady=20)
         announcement_title.pack(anchor="w", pady=0)
-        announcement_label.pack(anchor="w", pady=0)
+
+        announcement_frame = ttk.Frame(main_content)
+        announcement_frame.pack(fill="x", pady=(0, 10))
+        announcement_scrollbar = ttk.Scrollbar(
+            announcement_frame, orient="vertical")
+        announcement_scrollbar.pack(side="right", fill="y")
+        announcement_text = tk.Text(
+            announcement_frame,
+            height=9,
+            wrap="word",
+            font=("Microsoft Yahei", 12),
+            yscrollcommand=announcement_scrollbar.set,
+            bd=0,
+            highlightthickness=0,
+            state="normal"
+        )
+        announcement_text.insert("1.0", announcement)
+        announcement_text.config(state="disabled")
+        announcement_text.pack(side="left", fill="x", expand=True)
+        announcement_scrollbar.config(command=announcement_text.yview)
+
         button_link_frame = ttk.Frame(main_content)
         button_link_frame.pack(side="bottom", anchor="se",
                                fill="x", padx=10, pady=10)

@@ -58,6 +58,43 @@ def start_extension_server():
         position_speed = 0.0
         squad_position: list[tuple[float, float]] = []
 
+        message_stack = []
+        debounce_task = None
+
+        async def process_message_stack(websocket):
+            nonlocal message_stack
+            if message_stack:
+                log(f"Responding to {len(message_stack)} messages", "EVENT")
+                prompt = experimental.embed_prompt(
+                    message_stack, squad_ping, inventory, health_ping)
+                response, experimental.history = await experimental.query_async(
+                    prompt, experimental.history, return_think=False)
+
+                if len(experimental.history) > get_config()['extensions']['autoChat']['historyMaxLength']:
+                    experimental.history.pop(1)
+
+                if response:
+                    response = experimental.format_response(
+                        response)
+                    if response:
+                        task_t = time.time()
+                        log(f"Queried {task_t} tasks: {response}", "INFO")
+
+                        def get_track_ping():
+                            return track_ping
+                        for task in response:
+                            await experimental.send_notify(
+                                websocket, "Task", f"Executing {task}")
+                        await experimental.execute_task(
+                            response, inventory, message_stack, get_track_ping, websocket)
+
+                        log(f"{task_t} tasks executed", "EVENT")
+                message_stack = []
+
+        async def process_message(websocket):
+            await asyncio.sleep(get_config()['extensions']['autoChat']['chatCooldown'])
+            await process_message_stack(websocket)
+
         try:
             while True:
                 extensions = experimental.get_installed_extensions()
@@ -90,36 +127,19 @@ def start_extension_server():
                     chat_ping = message
                     assembled_chat = f"[{chat_ping['content']['area']}] {chat_ping['content']['user']}: {chat_ping['content']['message']}"
                     log(assembled_chat, "CHAT", save=False)
-
                     if get_config()['extensions']['autoChat']["enable"]:
                         if get_config()['extensions']['autoChat']['selfUsername'] != "enter <username> here or chat will respond to your own messages":
                             if chat_ping['content']['area'] in get_config()['extensions']['autoChat']['chatScope'] and chat_ping['content']['user'] != get_config()['extensions']['autoChat']['selfUsername']:
                                 if (get_config()['extensions']['autoChat']["chatMaxDistance"] and chat_ping['content']['userPosition'] is not None and chat_ping['content']['userPosition']['distance'] < get_config()['extensions']['autoChat']["chatMaxDistance"]) or not get_config()['extensions']['autoChat']["chatMaxDistance"]:
                                     if (get_config()["extensions"]['autoChat']['chatWhitelist'] != [] and experimental.re_match(chat_ping['content']['user'], get_config()["extensions"]['autoChat']['chatWhitelist'])) or (get_config()["extensions"]['autoChat']['chatWhitelist'] == [] and not experimental.re_match(chat_ping['content']['user'], get_config()["extensions"]['autoChat']['chatBlacklist'])):
-                                        log(f"Responding to `{assembled_chat}`", "EVENT")
-                                        prompt = experimental.embed_prompt(
-                                            chat_ping, squad_ping, inventory, health_ping)
-                                        response, experimental.history = await experimental.query_async(
-                                            prompt, experimental.history, return_think=False)
-
-                                        if len(experimental.history) > get_config()['extensions']['autoChat']['historyMaxLength']:
-                                            experimental.history = experimental.history[-get_config(
-                                            )['extensions']['autoChat']['historyMaxLength']:]
-
-                                        if response:
-                                            response = experimental.format_response(
-                                                response)
-                                            if response:
-                                                task_t = time.time()
-                                                log(f"Queried {task_t} tasks: {response}", "INFO")
-
-                                                def get_track_ping():
-                                                    return track_ping
-
-                                                await experimental.execute_task(
-                                                    response, inventory, chat_ping, get_track_ping, websocket)
-
-                                                log(f"{task_t} tasks executed", "EVENT")
+                                        message_stack.append(chat_ping)
+                                        await experimental.send_notify(websocket, chat_ping['content']['user'], chat_ping['content']['message'])
+                                        log(
+                                            f"Message added to stack: {assembled_chat}", "EVENT", save=False)
+                                        if debounce_task and not debounce_task.done():
+                                            debounce_task.cancel()
+                                        debounce_task = asyncio.create_task(
+                                            process_message(websocket))
 
                 elif message.get("type") == "florrSquads":
                     global current_path_task
@@ -186,6 +206,9 @@ def start_extension_server():
                 elif message.get("type") == "updateTrack":
                     track_ping = message
 
+                elif message.get("type") == "aspac":
+                    experimental.set_aspac(True)
+
                 for ext in extensions:
                     if ext["enabled"] and message.get("type") in ext["events"]:
                         registry = extension.load_extension(
@@ -211,6 +234,13 @@ def start_extension_server():
     def ping():
         return {"status": "ok"}
 
+    if get_config()['extensions']['autoChat']['enable'] and get_config()['extensions']['autoChat']['chatType'] == "ollama":
+        status = experimental.check_ollama()
+        if not status:
+            log("Ollama wasn't configured properly, `autoChat` won't work correctly",
+                "CRITICAL", save=False)
+
+    experimental.initiate_swap()
     run(app, host=get_config()['extensions']['host'], port=get_config()[
         'extensions']['port'], log_level="critical")
 

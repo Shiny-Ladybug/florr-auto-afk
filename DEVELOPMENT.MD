@@ -1,5 +1,9 @@
 # Extensions Docs (v1.3.0)
 
+> [!IMPORTANT]  
+> Extension is not supported under multi-boxing / background conditions.
+
+
 The docs are for someone who want to create their own extensions, or maybe ~~Macros~~
 
 Anyway I want to say is comments are not allowed in JSON, the comments here are only used to let you know further about those key-value things
@@ -40,6 +44,7 @@ async def main(args):
 
 ```python
 await websocket.send_json({"command": "showInfo", "info": "Hello World", "color": "#0969da50", "duration": 3000})
+await websocket.send_json({"command": "showNotification", "title": "Greeting", "info": "Hello World!", "icon": "<base64 img>", "duration": 3000})
 ```
 
 ## Events & Args

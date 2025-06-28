@@ -279,7 +279,7 @@ def create_fill_image(image, width, height):
     return cv2.cvtColor(np.array(tiled_image), cv2.COLOR_RGBA2BGRA)
 
 
-def create_rounded_image(image, width, height, radius, theme, blur_strength=0.05):
+def create_rounded_image(image, width, height, radius, theme, special_ui, blur_strength=0.05):
     image = cv2.resize(image, (width, height))
     if image.shape[2] == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2BGRA)
@@ -312,20 +312,21 @@ def create_rounded_image(image, width, height, radius, theme, blur_strength=0.05
     final_image_bgra = np.zeros((height, width, 4), dtype=np.uint8)
     final_image_bgra[:, :, :3] = (blended_rgb * 255).astype(np.uint8)
     final_image_bgra[:, :, 3] = blurred_alpha_mask
-    final_image_bgra = draw_version(final_image_bgra, width, height)
+    final_image_bgra = draw_version(
+        final_image_bgra, width, height, special_ui)
     rounded_image_rgba = cv2.cvtColor(final_image_bgra, cv2.COLOR_BGRA2RGBA)
     return Image.fromarray(rounded_image_rgba)
 
 
-def draw_version(image, width, height):
+def draw_version(image, width, height, special_ui):
     rounded_image = draw_text_pil(
         image,
         "florr-auto-afk",
-        (width // 2, height // 2 - 5),
+        (60, height//2-39) if special_ui else (width // 2, height // 2 - 5),
         "./gui/Ubuntu-R.ttf",
-        50,
+        57 if special_ui else 50,
         (255, 255, 255),
-        align="center",
+        align="left" if special_ui else "center",
         outline_color=(0, 0, 0),
         outline_width=2,
     )
@@ -338,26 +339,27 @@ def draw_version(image, width, height):
         version = f"{constants.VERSION_INFO} Preview.{constants.SUB_VERSION}"
     else:
         version = f"{constants.VERSION_INFO} {constants.VERSION_TYPE}.{constants.SUB_VERSION}"
-    rounded_image = draw_text_pil(
-        rounded_image,
-        f"v{version}",
-        ((width+text_width) // 2+5, (height+text_height) // 2-28),
-        "./gui/Ubuntu-R.ttf",
-        25,
-        (255, 255, 255),
-        align="left",
-        outline_color=(0, 0, 0),
-        outline_width=1,
-    )
+    if not special_ui:
+        rounded_image = draw_text_pil(
+            rounded_image,
+            f"v{version}",
+            ((width + text_width) // 2+5, (height+text_height) // 2-28),
+            "./gui/Ubuntu-R.ttf",
+            25,
+            (255, 255, 255),
+            align="left",
+            outline_color=(0, 0, 0),
+            outline_width=1,
+        )
 
     rounded_image = draw_text_pil(
         rounded_image,
         f"GitHub: https://github.com/{constants.PROJECT_REPO}",
-        (width-15, height-30),
+        (40, height-60) if special_ui else (width-15, height-30),
         "./gui/Ubuntu-R.ttf",
         15,
         (255, 255, 255),
-        align="right",
+        align="left" if special_ui else "right",
         outline_color=(0, 0, 0),
         outline_width=1,
     )
@@ -493,7 +495,7 @@ def add_rounded_image_to_canvas(main_content, image, theme, height=200, radius=2
             tiled_image = create_fit_image(
                 image_np, width, height)
         rounded_image = create_rounded_image(
-            tiled_image, width, height, radius, theme)
+            tiled_image, width, height, radius, theme, special_ui=image['name'] == 'Crystal')
         rounded_image_tk = ImageTk.PhotoImage(rounded_image)
         canvas.delete("all")
         canvas.config(width=width, height=height)
