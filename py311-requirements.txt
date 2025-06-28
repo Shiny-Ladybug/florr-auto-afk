@@ -3,7 +3,7 @@ torchaudio
 torchvision
 ultralytics
 lap>=0.5.12
-scipy
+scipy==1.15.3
 scikit-image==0.24.0
 scikit-learn
 rich
