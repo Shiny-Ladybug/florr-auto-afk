@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 a = Analysis(
-    ['./segment.py'],
+    ['./server.py'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -13,7 +13,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['torch', 'ultralytics', 'torchaudio', 'torchvision', 'tk', 'tkinter-tooltip', 'scipy', 'matplotlib', 'sv_ttk', 'pandas', 'numpy', 'scikit-learn', 'scikit-image', 'PIL', 'opencv-python'],
     noarchive=False,
     optimize=0,
 )
@@ -24,7 +24,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='segment',
+    name='server',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -35,7 +35,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    version='./file_version_info_ex.txt',
+    version='./file_version_info_sv.txt',
     icon=['./gui/icon.ico'],
 )
 coll = COLLECT(

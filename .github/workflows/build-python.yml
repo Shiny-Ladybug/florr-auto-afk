@@ -69,6 +69,7 @@ jobs:
         shell: powershell
         run: |
           python -m PyInstaller segment.spec
+          python -m PyInstaller server.spec
 
       - name: Copy libraries
         shell: powershell
@@ -85,17 +86,29 @@ jobs:
           Copy-Item -Path ./models -Destination ./dist/segment/models -Recurse
           Copy-Item -Path ./extensions -Destination ./dist/segment/extensions -Recurse
           Copy-Item -Path ./gui -Destination ./dist/segment/gui -Recurse
-      
+
+          Copy-Item -Path ./config.json -Destination ./dist/server/config.json
+          Copy-Item -Path ./extension.swap.json -Destination ./dist/server/extension.swap.json
+          Copy-Item -Path ./conversation.json -Destination ./dist/server/conversation.json
+          Copy-Item -Path ./README.md -Destination ./dist/server/README.md
+          Copy-Item -Path ./LICENSE -Destination ./dist/server/LICENSE
+          Copy-Item -Path ./DEVELOPMENT.MD -Destination ./dist/server/DEVELOPMENT.MD
+          Copy-Item -Path ./extension.js -Destination ./dist/server/extension.js
+          Copy-Item -Path ./extensions -Destination ./dist/server/extensions -Recurse
+
       - name: Create Symbolic Links
         shell: cmd
         run: |
           mklink /D ".\dist\segment\_internal\extensions\" "..\extensions"
+          mklink /D ".\dist\server\_internal\extensions\" "..\extensions"
 
       - name: Compress files into tar.gz
         shell: bash
         run: |
           echo "Compressing ./dist/segment directory into a tar.gz"
           tar -czf ./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.tar.gz -C ./dist segment
+          echo "Compressing ./dist/server directory into a tar.gz"
+          tar -czf ./dist/florr-auto-afk-server-v${{ steps.get_version.outputs.version }}.tar.gz -C ./dist server
 
       - name: Upload Executable to Release
         if: ${{ github.event_name == 'push' }}
@@ -110,10 +123,12 @@ jobs:
               --target main \
               --prerelease
             gh release upload "v${{ steps.get_version.outputs.version }}.${{ steps.get_version.outputs.versionsub }}" "./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.tar.gz" --clobber
+            gh release upload "v${{ steps.get_version.outputs.version }}.${{ steps.get_version.outputs.versionsub }}" "./dist/florr-auto-afk-server-v${{ steps.get_version.outputs.version }}.tar.gz" --clobber
           else
             gh release create "v${{ steps.get_version.outputs.version }}" \
               --title "Release v${{ steps.get_version.outputs.version }}" \
               --notes "Automated release for version v${{ steps.get_version.outputs.version }}" \
               --target main
             gh release upload "v${{ steps.get_version.outputs.version }}" "./dist/florr-auto-afk-v${{ steps.get_version.outputs.version }}.tar.gz" --clobber
+            gh release upload "v${{ steps.get_version.outputs.version }}" "./dist/florr-auto-afk-server-v${{ steps.get_version.outputs.version }}.tar.gz" --clobber
           fi
