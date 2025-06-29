@@ -10,6 +10,7 @@ from starlette.websockets import WebSocketDisconnect
 from experimental import log
 import traceback
 import time
+import constants
 from json import load, dumps
 from contextlib import asynccontextmanager
 
@@ -257,4 +258,6 @@ def start_extension_server():
 
 
 if __name__ == "__main__":
+    print(
+        f"florr-auto-afk-server v{constants.VERSION_INFO}({constants.VERSION_TYPE}.{constants.SUB_VERSION}) {constants.RELEASE_DATE}")
     start_extension_server()

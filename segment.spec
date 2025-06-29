@@ -9,7 +9,7 @@ a = Analysis(
                    'uvicorn.protocols.http.h11_impl', 'uvicorn.protocols.http.httptools_impl',
                    'uvicorn.protocols.websockets', 'uvicorn.protocols.http', 'uvicorn.protocols',
                    'uvicorn.loops.auto', 'uvicorn.loops.asyncio', 'uvicorn.loops.uvloop', 'uvicorn.loops',
-                   'uvicorn.logging'],
+                   'uvicorn.logging', 'pyperclip'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

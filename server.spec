@@ -9,11 +9,11 @@ a = Analysis(
                    'uvicorn.protocols.http.h11_impl', 'uvicorn.protocols.http.httptools_impl',
                    'uvicorn.protocols.websockets', 'uvicorn.protocols.http', 'uvicorn.protocols',
                    'uvicorn.loops.auto', 'uvicorn.loops.asyncio', 'uvicorn.loops.uvloop', 'uvicorn.loops',
-                   'uvicorn.logging'],
+                   'uvicorn.logging', 'pyperclip'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['torch', 'ultralytics', 'torchaudio', 'torchvision', 'tk', 'tkinter-tooltip', 'scipy', 'matplotlib', 'sv_ttk', 'pandas', 'numpy', 'scikit-learn', 'scikit-image', 'PIL', 'opencv-python'],
+    excludes=['torch', 'ultralytics', 'torchaudio', 'torchvision', 'tk', 'tkinter-tooltip', 'scipy', 'matplotlib', 'sv_ttk', 'pandas', 'scikit-learn', 'scikit-image', 'PIL', 'opencv-python'],
     noarchive=False,
     optimize=0,
 )
