@@ -810,7 +810,7 @@ def get_installed_extensions():
     response = []
     for ext in extensions:
         if path.exists(f"./extensions/{ext}/registry.json") and path.exists(f"./extensions/{ext}/main.py"):
-            with open(f"./extensions/{ext}/registry.json", "r") as f:
+            with open(f"./extensions/{ext}/registry.json", "r", encoding="utf-8") as f:
                 registry = load(f)
             if registry["name"].strip() == ext.strip():
                 response.append(registry)
@@ -825,6 +825,6 @@ def on_extension_toggle(name: str, enabled: bool):
     for ext in conf:
         if ext["name"] == name:
             ext["enabled"] = enabled
-            with open(f"./extensions/{name}/registry.json", "w") as f:
+            with open(f"./extensions/{name}/registry.json", "w", encoding="utf-8") as f:
                 f.write(dumps(ext, indent=4, ensure_ascii=False))
             return

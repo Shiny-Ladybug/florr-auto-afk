@@ -1,6 +1,7 @@
 from gui_utils import *
 import multiprocessing
 import experimental
+import server
 
 
 def test_idle_thread(idled_flag, suppress_idle_detection, shared_logger, not_stop_event):
@@ -89,13 +90,13 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
                         ready_button[0], ready_button[1], button='left')
                     with suppress_idle_detection.get_lock():
                         suppress_idle_detection.value = False
-                    log_ret("AFK detection failed", "EVENT", shared_logger)
+                    log_ret("AFK detection failed", "ERROR", shared_logger)
                     debugger(
                         "AFK detection failed, ready button found", ready_button)
                     sleep(1)
                     continue
 
-            if get_config()["extensions"]["enable"] and experimental.get_connected():
+            if (get_config()["extensions"]["enable"] and experimental.get_connected()) and not get_config()["advanced"]["forceYOLO"]["det"]:
                 if not experimental.get_aspac():
                     debugger("No AFK window found [EXP]")
                     if experimental.get_block_alpha():
@@ -126,7 +127,7 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
             log_ret("Found AFK window", "EVENT", shared_logger)
             debugger("Found AFK window")
 
-            if get_config()["extensions"]["enable"]:
+            if (get_config()["extensions"]["enable"] and experimental.get_connected()):
                 if get_config()["extensions"]["bgRemove"]:
                     log_ret("Blocking alpha channel", "EVENT", shared_logger)
                     experimental.switch_block_alpha(True)
@@ -253,58 +254,84 @@ def afk_thread(idled_flag, suppress_idle_detection, shared_logger, capture_windo
 
 
 def execute_afk(afk_window_pos, ori_image, image, afk_seg_model, afk_det_model, suppress_idle_detection, shared_logger, type="fullscreen", hwnd=None):
-    res = get_masks_by_iou(image, afk_seg_model)
-    start_p, end_p, start_size, pack = detect_afk_things(
-        image, afk_det_model, caller="main")
-    if res is None:
-        log_ret("No masks found", "ERROR", shared_logger)
-        save_image(image, "mask", "error")
-        experimental.switch_block_alpha(False)
+    need_yolo = False
+    if (get_config()["extensions"]["enable"] and experimental.get_connected()) and not get_config()["advanced"]["forceYOLO"]["seg"]:
+        log_ret("Using BW OpenCV", "EVENT", shared_logger)
+        afk_bw = AFK_BW(image)
+        afk_bw.crop_nb_image().normalize().get_mask()
+        start_p, end_p = afk_bw.get_start(), afk_bw.get_end()
+        if start_p is None or end_p is None:
+            log_ret("No start or end point found, fallback to use YOLO",
+                    "WARNING", shared_logger)
+            need_yolo = True
+        else:
+            afk_bw.dijkstra()
+            afk_bw.rdp(round(eval(get_config()["advanced"]["rdpEpsilon"].replace(
+                "width", str(afk_bw.get_width())))))
+            afk_bw.extend(get_config()["advanced"]["extendLength"])
+            line = afk_bw.get_final(afk_window_pos[0], precise=False)
+            start_p = (start_p[0] + afk_bw.offset[0],
+                       start_p[1] + afk_bw.offset[1])
+            end_p = (end_p[0] + afk_bw.offset[0],
+                     end_p[1] + afk_bw.offset[1])
+            line = [(p[0] + afk_bw.offset[0], p[1] + afk_bw.offset[1])
+                    for p in line]
+            ori_image = draw_annotated_image(
+                ori_image, line, start_p, end_p, afk_window_pos, afk_bw.inverse_start_color, afk_bw.get_width(), afk_bw.get_length(), afk_bw.get_difficulty(), "OpenCV Pro")
 
-        return
-    position = start_p, end_p, afk_window_pos, start_size
-    mask, results = res
+    if need_yolo or not (get_config()["extensions"]["enable"] and experimental.get_connected()) or get_config()["advanced"]["forceYOLO"]["seg"]:
+        res = get_masks_by_iou(image, afk_seg_model)
+        start_p, end_p, start_size, pack = detect_afk_things(
+            image, afk_det_model, caller="main")
+        if res is None:
+            log_ret("No masks found", "ERROR", shared_logger)
+            save_image(image, "mask", "error")
+            experimental.switch_block_alpha(False)
+            return
 
-    results_ = deepcopy(results)
-    image_ = deepcopy(image)
-    if start_p is None:
-        log_ret("No start point found, going for AUTO prediction",
-                "WARNING", shared_logger)
-    if end_p is None:
-        log_ret("No end found, going for LINEAR prediction",
-                "WARNING", shared_logger)
+        position = start_p, end_p, afk_window_pos, start_size
+        mask, results = res
 
-    afk_mask = AFK_Segment(image, mask, start_p, end_p, start_size)
-    if start_p is not None:
-        afk_mask.save_start()
+        results_ = deepcopy(results)
+        image_ = deepcopy(image)
+        if start_p is None:
+            log_ret("No start point found, going for AUTO prediction",
+                    "WARNING", shared_logger)
+        if end_p is None:
+            log_ret("No end found, going for LINEAR prediction",
+                    "WARNING", shared_logger)
 
-    if get_config()["advanced"]["saveYOLOImage"]:
-        mask_image = image.copy()
-        mask_ = mask.cpu().numpy()
-        mask_ = cv2.resize(mask_, (mask_image.shape[1], mask_image.shape[0]))
-        mask_colored = np.stack(
-            [mask_ * 255, mask_ * 0, mask_ * 0], axis=-1).astype(np.uint8)
-        overlay = cv2.addWeighted(mask_image, 0.7, mask_colored, 0.3, 0)
-        save_image(overlay, "seg", "yolo")
+        afk_mask = AFK_Segment(image, mask, start_p, end_p, start_size)
+        if start_p is not None:
+            afk_mask.save_start()
 
-    log_ret("Using yolo to bypass AFK", "EVENT", shared_logger)
+        if get_config()["advanced"]["saveYOLOImage"]:
+            mask_image = image.copy()
+            mask_ = mask.cpu().numpy()
+            mask_ = cv2.resize(
+                mask_, (mask_image.shape[1], mask_image.shape[0]))
+            mask_colored = np.stack(
+                [mask_ * 255, mask_ * 0, mask_ * 0], axis=-1).astype(np.uint8)
+            overlay = cv2.addWeighted(mask_image, 0.7, mask_colored, 0.3, 0)
+            save_image(overlay, "seg", "yolo")
 
-    afk_path = AFK_Path(afk_mask.segment_path(), start_p,
-                        end_p, afk_mask.get_width())
-    dijkstra_stat = afk_path.dijkstra(afk_mask.mask)
-    if not dijkstra_stat:
-        afk_path.sort()
-    afk_path.rdp(round(eval(get_config()["advanced"]["rdpEpsilon"].replace(
-        "width", str(afk_mask.get_width())))))
-    afk_path.extend(get_config()["advanced"]["extendLength"])
-    line = afk_path.get_final(afk_window_pos[0], precise=False)
+        log_ret("Using yolo to bypass AFK", "EVENT", shared_logger)
 
-    ori_image = draw_annotated_image(
-        ori_image, line, start_p, end_p, afk_window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length(), afk_path.get_difficulty(), afk_path.sort_method)
-    packs = [
-        [(0, 0), (image.shape[1], image.shape[0])], pack[0], pack[1]]
+        afk_path = AFK_Path(afk_mask.segment_path(), start_p,
+                            end_p, afk_mask.get_width())
+        dijkstra_stat = afk_path.dijkstra(afk_mask.mask)
+        if not dijkstra_stat:
+            afk_path.sort()
+        afk_path.rdp(round(eval(get_config()["advanced"]["rdpEpsilon"].replace(
+            "width", str(afk_mask.get_width())))))
+        afk_path.extend(get_config()["advanced"]["extendLength"])
+        line = afk_path.get_final(afk_window_pos[0], precise=False)
 
-    threading_save(image_, results_, packs, afk_path.get_difficulty())
+        ori_image = draw_annotated_image(
+            ori_image, line, start_p, end_p, afk_window_pos, afk_mask.inverse_start_color, afk_mask.get_width(), afk_path.get_length(), afk_path.get_difficulty(), afk_path.sort_method)
+        packs = [
+            [(0, 0), (image.shape[1], image.shape[0])], pack[0], pack[1]]
+        threading_save(image_, results_, packs, afk_path.get_difficulty())
 
     save_image(ori_image, "afk_solution", "afk")
 
@@ -335,7 +362,8 @@ def execute_afk(afk_window_pos, ori_image, image, afk_seg_model, afk_det_model, 
         if get_config()["advanced"]["moveMouse"]:
             with suppress_idle_detection.get_lock():
                 suppress_idle_detection.value = True
-            apply_mouse_movement(calculate_offset(line, hwnd), active=False)
+            apply_mouse_movement(
+                calculate_offset(line, hwnd), active=False)
             pyautogui.moveTo(ori_pos[0], ori_pos[1], duration=0.1)
             with suppress_idle_detection.get_lock():
                 suppress_idle_detection.value = False
@@ -349,7 +377,7 @@ def execute_afk(afk_window_pos, ori_image, image, afk_seg_model, afk_det_model, 
         obs("stop")
     debugger("`execute_afk` finished")
 
-    if get_config()["extensions"]["enable"]:
+    if (get_config()["extensions"]["enable"] and experimental.get_connected()):
         if get_config()["extensions"]["bgRemove"]:
             log_ret("Restoring background", "EVENT", shared_logger)
             experimental.switch_block_alpha(False)
@@ -808,6 +836,8 @@ def threading_save(image, results, packs, difficulty):
         now = int(time())
         seg_label = export_segmentation_to_label(results, image, now)
         det_label = export_detection_to_label(packs, image, now)
+        anno_label = export_annotation_to_label(image, difficulty, now)
+
         if not path.exists("./train"):
             mkdir("./train")
         if not path.exists("./train/images"):
@@ -816,6 +846,8 @@ def threading_save(image, results, packs, difficulty):
             mkdir("./train/split")
         if not path.exists("./train/detection"):
             mkdir("./train/detection")
+        if not path.exists("./train/annotation"):
+            mkdir("./train/annotation")
         if not path.exists("./train/detection/classes.txt"):
             classes = ["Window", "Start", "End"]
             with open("./train/detection/classes.txt", "w") as f:
@@ -831,6 +863,8 @@ def threading_save(image, results, packs, difficulty):
                     f"{item['position'][0]:.6f} {item['position'][1]:.6f} "
                     f"{item['position'][2]:.6f} {item['position'][3]:.6f}\n"
                 )
+        with open(f"./train/annotation/{now}.json", "w") as f:
+            dump(anno_label, f, indent=4)
         with tar_open("./train/train.tar.gz", "w:gz") as tar:
             tar.add("./train/images", arcname="images")
             tar.add("./train/split", arcname="split")
@@ -877,7 +911,6 @@ if __name__ == "__main__":
 
     if get_config()["extensions"]["enable"]:
         log("Attempting to start extension server", "INFO")
-        import server
         multiprocessing.Process(
             target=server.start_extension_server, args=()).start()
 

@@ -1,3 +1,4 @@
+import extension
 import numpy as np
 import pyperclip
 from itertools import combinations
@@ -19,6 +20,7 @@ import functools
 
 
 console = Console()
+ALL_SERVERS = []
 
 
 def get_config() -> dict:
@@ -26,7 +28,7 @@ def get_config() -> dict:
         return load(f)
 
 
-def log(event: str, type: str, show: bool = True, save: bool = True):
+def log(event: str, type: str, show: bool = True, save: bool = True, chat: bool = False):
     back_frame = _getframe().f_back
     if back_frame is not None:
         back_filename = path.basename(back_frame.f_code.co_filename)
@@ -58,6 +60,9 @@ def log(event: str, type: str, show: bool = True, save: bool = True):
         console.print(logger, style=style)
     if save:
         with open('latest.log', 'a', encoding='utf-8') as f:
+            f.write(f'{logger}\n')
+    if chat:
+        with open('./chat.log', 'a', encoding='utf-8') as f:
             f.write(f'{logger}\n')
 
 
@@ -252,7 +257,7 @@ def get_installed_extensions():
     response = []
     for ext in extensions:
         if path.exists(f"./extensions/{ext}/registry.json") and path.exists(f"./extensions/{ext}/main.py"):
-            with open(f"./extensions/{ext}/registry.json", "r") as f:
+            with open(f"./extensions/{ext}/registry.json", "r", encoding="utf-8") as f:
                 registry = load(f)
             if registry["name"].strip() == ext.strip():
                 response.append(registry)
@@ -707,6 +712,8 @@ def check_ollama():
                         log(f"Found Ollama model: {model['name']}",
                             "INFO", save=False)
                         return True
+                log(f"Model {get_config()['extensions']['autoChat']['chatModel']} not found on Ollama server. Run `ollama pull {get_config()['extensions']['autoChat']['chatModel']}` to download it.",
+                    "ERROR", save=False)
                 return False
             else:
                 log("Ollama server is not running or not reachable.",
@@ -723,3 +730,106 @@ def check_ollama():
 
 async def send_notify(websocket, title, info):
     await websocket.send_json({"command": "showNotification", "title": title, "info": info, "icon": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGsAAABrCAYAAABwv3wMAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAEnQAABJ0Ad5mH3gAACUrSURBVHhe7X0JmJbVlaYxGTvpzjOZbpcYWQpwi5oQjDG2G6JSRS1sVVRBQa1/VWHH9Ew6yfSoSUw0MlGT0HTS0U6iMZpOpKrY14LaAHEjirLIvgoIVCGIKzuced5zl+/c+93/r5+qsifM8D/Pee73nbt8955zz3LX/5xetZV0Fs4MOMdHnIW/XDjLrDMIzjLrDIKzzDqD4CyzziA4y6wzCJIza7IKe9cmqLcN/WfzbkDik6VPN66jNB19s7NxMvTjUuVNli+duCg+xofTYRaHDAkNwOtQ4uy7Cns77/qZyzN5kqSJpQ29S4jS9JhcST0mJ+iSyZUMeAbOKSeU3xBJpmFc8va5aUR5gTxgRDC/LMcJw5CaWZMrmaASQjgZJ+NlI1Kl9fMkSwvoqXF9aivp8tpK+mJdBV1TV04D6srphvpSunVKCQ3SgGfgEIc0SHtZrcrrlxv6bgiS1bmj/KH4pGX5vEiXWbIX9NbSYEIXp9+NWHM+lZfjNV7hZO8zZUR49QzGQEqqOASRv1pfTjnTxlHZjDH0P2cX0qPz8umJhuFUvyCP5jbm0sLGHGppzKbWphyG5sZsxiEOaX7bMJwemZtP351dSGUziil7agmXeWmt+VaCQ1P/qC1aRdn26FC00xLd5A20R+JtaOkSlRvjRfrMwrshrIfTPdTpEabSNq2XN1S+xpuOAIJd/GyCLq2toDumlNA/zBxNk+aPpCkL86ilMYdeaR5CK1uyaHVrJq1tzaR1rZm0XochMHFrWjM5D/L+uXkINTfmUP3CoTRx3kgaP3MM3T6lhPrWVvK3UQdbd0tM2V6fJtF71Hbx7rXbT+PQ2OdFWswKETUVvovwhckJhv515fSNmUX0+4ZhtKQpm4n7RmsWvYGwJZPD1S2ZtJpD+SxxyeNMGbas1ixa0ZJFi5qy6XcNw2n8zNH0pbpyWx+nnrLtIToEcT5jk4CkewCSMgu2QT1rMRVgRdfD+Wn9Zz+fee9Zq4hy45Qyun/OKHquKZvWL8qkjYsyae2iTMWo/wSAlOKb6xZl0qKmHLpv9ii6YUoZfR7SHmhXsvaEnjuiR/Qc50X6zGKuazVg3qWB1jipb2U602uM22vwKB/e2qV1lXTH1BL6ydwCWtyUQ+tas5S6stIA1aV6v5GMVQyZHDJOEHzNoiECIrzJH8urpVaWr9RrFq1vzWLb99DcAho0tYTVsvIuvTYxiPaLNA7dUuLArIg+IeiQWbIHKAjhTg/QSxGCST+eW0CtTdnW9hjCWwZZQoLASsrWLcmmjc/n0tZlw2jn8pG0Z0UBta8upLfXjKYD68ZY2L92NOMQt3tFAe18dSRtfXkY5127OJvLRZlOhxB14G9puwj79qM5BXTb1FKnDS50hTbGiYnz4v8Ks9D7vjC5il3ob80upDmNuWyPIEmSQUwozZxVzYjLpI1Lc2nn8hG0740iem/zODr0Zjkd3VlJx99K0MndCaK91clhTxWnOb4rQUd2VtKh7eX03sZxtG91Ie14ZQRteC6Hv7e6WX0TzDP1kSoSdm1WYx59c1YRXVZXwW3xVVpXoVPMCmUyIh+Jvu4NMZzIr8Oe2su6dWop/XHBUCYICGANvZYeDpuzaFVTJq1dPISJ+e6GsXR0RwWd3FNFpwQTTu0BVGkw7x3jbP691XRidxWXfXB9MW3/83BauwjfHhypV10n1YEU08DQZxqG0U1TSulitmcRHXxaWZUXopEXdloNmkw+59MGMV6ByuhXW0mJmWPopeYhtIElyagb9cygCbNhaS7tWTmKDm8vJ9pbE5eUTkFVABeHQ9tKWWWuf06pSajFqH7RO9oAR6h0RjH1MWpRjs18OjB0TM/OMysGxgWVrmgIFwEM8lfqyljfY3wEGyClSUmUCje/kEdtqwvp8JvlSoLaaoi0VCB0n6XkaIlxJEm9g0kyjcK7OFMeh21K4g5tL6O9K0exfZNSbyQM9UdbXm7OpvvmjGJX353a6ohufryI83mRFrNijPM/6n3EvGuVgBmBv59SRr+aP4L1vVJ72qALgCSBMCAQM0OrKENAg2PpEMxyQEtGlM/Fm3fFbMMkP14zUuNO7q6ij7aW0e7XtaQF6o42vd6SRf86byRdV1/GbY4xw0hMjF4eXX26nz6zorGBYYI/ZojyRTiMm26dUkp1C4Zyb1wjjLXsqW++MoI+3FrKhDHSE2RGEOfFM9H9dCGcX16yeAWwa+9vLqHty4ZZJsm2mLY9u2Ao3VxfqhgWo5VLnwhn8NrudYVZVtdaGxTAObq4ki6pTdDtU0tpQWMu63ZuoHXBFcB52Le6iI6/hd5d46g0JU1SnXk4zRSERo3J0M3rxXl5OU5Llp9P4lDHY28lqG1lITPHuPhyPIiB/OzGPHaiwDBFL0kjTTM9pnJp1wVmJXPdJU5KmAkBg6aW0vSFeco+CeOsnIrBtHFpDr27aSydgj1hohlPLQXIdGyHROjjO8L5kCyNj9d1gOe4fkk2u/qO/dV2rBYSNqXUznpIGvnPPl19PqTNLLikcf2q0/g4PSOBSv5hwTA7C8EqTzxDlRzaVsaG3NghxTRImCKKDK2dEoSzqkrHWZxMH3j3y3TeDU7URX47AlVvqO4tL2EIoiXLqPYWTBhn0ZMNw+nr9WVMkxC9/FmOGH0DkJJZTmZ+Ng6EjFM9BZXCmtG/zx9hKy0NMRi1a/lIOrJDeXqxXnymAXuM5WxzjQ02sEYP6H85bwRdzlNUIadC0Nunc4AfgA6ZZXVtUMcaPasY+JO5+SxFrNPNTLm2VbteG0lHd1ZEToDxwERvTQomfejdj5M4Y3sk3sclS5fs2ct7eEc5D9xNOx0nqjWTHpyTr5lgVJ5PS9fUdIpZJpPLIGmzjI5N8Cj+rpmj9TxaxCCjx9H7ju6qjFSfT6wQ+ETy40NxqdKdDqRTjkhzZEcFbXt5GK1qHuwwC50WNEnMHM3esU/LeOfvpM2yzGLvJVoYtN6gfoeIZ08bRy82Z9O6RaisUnlsp5oH05aXh/J0Dga4rP4cUFJlnmWo8BEuSuenD+CMt8fPIq/FB76lVZtJZ79vnxHKd5G+rYZnWzY9n0urWwwNFIAmWG4ZPLWEaWVpyTSU9OyCZEU2SxUoB3TmI1hNxbL47xuG01q7oKcAunvTC3k80OVZAavvfXvlv3eEl3Gp0ph4A36cny4dnI+PykYbP9pWyhPOxmZLTxG2/Cv15XoF2jgY7mBZLjOFIDWz8GyZ5gLisfHk27ML6VVdKWlkMZP9/uZxHqP+3wa09eCGYlq3ZIjnXGXSspYhdPesotReoIEAP1Iyy2RyHYzIIGIMgQW5eY25POViZqkRQldjHcmoDFYf0j33QgNRGjdPR+ktXrjZydJKXCg+ShOud/Su4t1vVfPKwN5Vo7SHGC37gEZYXrlxSin1cJyLiKYIu8Ysaxg1GN1am6CH5hREyxzCsMKhOPZWpTXA/78B1sywyOl4hy3K2fj+7FG8DiZpKaFLzHJFVBUGQ3nblBJ6vlmt8Cq9rJcOlkL9lXClfSMuwRjn0LMMLcCT1DPisbgOykqV7pQuN1kaHxe9G+mS8REOa3BY0TYOF2gEWi1tzua9jJAul67dIllSTKMppUnzRvIWLylRqBjWocwioQTZKB/vP/vEAUEP76igwzsrifbFy4qlD7yH8CgLZQKYaUnK9PP576HvnNidoF3L87WzoR0v3teRST+di7GXmXaKaNs1ZsVAjakyp46jV5qz2AM0RhRjDCx1YC2KKxwwwKcNe6vo2O4ELW8eRb+eOJR++XA2rVhcoCUhkD5NYAloq6LlLfn0q0fz6NcT82jF4kI6rr/JaQL5fEiVBjT4aFsZT1jDnTd0girEnkXsPwEtpWRZOvu8SItZHJqBmtmOVUk/mzsymk3XsLI5k9rfKLKNTe76+pA83cm2alqxeAw9/ot7qKWlhZqamun++6poeXM+S4WfPl1A3mUL82nCj/+JFi9eQg0N82niw9+gNc+PoVPtnS9Xgci/t4r2rBjF+0jsLH1rFm1sHcw7phRNFW0Vvbtos6TxwxgBi4kYAEv1x6760hw6AacCq7sBFXHa0FZN720ro6ce/yat37CFzG/jxi308ANF1L5uHFF7IF9H0F5De1YX06Sf3kX7D7xry33p5Vdp0sNj6MieRMyGdRraaujYzgo1Q+85YS1NOXR9fVlsl1SMD2kzywM4Ft+aVaR2AOmtyEaysN0LhIj3NAEB9RhSJeyC76umF+cV0tQpk+nUKaJTp04xHDlylKZNeZoWzSykk3sSsbwx8NQlbMnC+kJqXDCTTpw4Ycs9duwYPfnE4/TKwvSlVtXdTYtpKOe9rZq3yq2CKtROGOj1WksWT9FFk7xdVYN2akTNVmBW/cn5w3n+z4g0GLf+uRxlq5J4VR1BMN2+Kpo4YRStWbPe9n7zW79uLdX9vobe3aonhtMoz+AObCqj3z+WoC2bNzGTnHLXb6aJE4YTtbueXqicVN9woK2Gl1PgGZp9j2osmkn/Nn8Eb8uLDkN0lVnaS0EPgGPR3JSjV0rNIDiTlz7gAcYq2llor6H968bRvf9cTYcOHXUIil9b+z56+okf0LZVaoiQNrRV07o/F9NvH/s+l+H/jh47QT+4bzx/G3WI5Xcg/fZibyO2uanZjGiQPL8xlzeN8pxhl71BwTQADgu82qxcdDuVsiiLp1isujGjfPOsQ2cGQKRDYyze4A7U0OIZQ+nBB+53VKCBw0eOUcO8Z2ndi2V0ql14cLJ8+V3zvfZqen5OPj3xm4n0wQcf2fLwM+H8+bNo6eyhXAe/rg6E8Pab8Ta9vXa0HW+BbljzWtY8hCpnjNbzsF2VLO1gwEu5rK6Sfj5vpLPxBTp40wu5dBiTtboXWTUhlhD8MYpZXgilYdy7d9HvfnEnlZVXs10xP0ncDeteo1eaqukE7Iss03/W73g+1lZNdb/Nph8/+H06cOBgTA3it2XrTppfN4boQJTXb0NoXctM6sp2IY95/nBLKTth0Yy8UoUT5ubzMaOuOxh6uglc/2p9Ge/e4RkLIVk7Xh1Bx3lqyZ0ni0uW6G1GCqQ02Pm1KqKD4+nRH91GV35xADU1NdHhw4eZkA6z1q+h5ukJOvY2iKHz87f0dxzpVeGR9mp67JE76PZBA6mxsYmdCp9hW7ftpZl/rCB6W23JlvkdyQ3hbRuiOhkcFl55CkpM7mLM9XTDMPpyXYXdRNN5yTJT+bWwVyV8kA3iG30wi71Aa6+MJ9cVQDn7qun+795C51/YkzIzM+mZZ56h9vZ2S9iTJ0/S/PkN9KffFNLR/coDjZUTgENt1fTTHw2i3r0z6I477rTlyl9L64s08aEsHjR3R5tUh1QzGth/aJaP1Ip6JjU25vBuKEvrzjCLN8xoXQpmjZlRTK+1DLHTJvggRucHN4x11IEFT02EQfZEDTz/V0X3/Peb6aLP96Y+ffpQ//796e6776aGhgZ68803qbW1lYqKiulfJ9xJxw6MF9/0yjNE0+8ftVfThO8NpF69+lBGRh+66qqraPz48TRnzhzasmULLVmyhHKHFtD9371JqT14t047AvWVIL7lA8rbv3ZMbMvD8pYhNHz6WLXO1dlBsd2DoeE7s0bpBbUIsGb14bZSPa8WVzsSQrgQ3jLrfyhm9e3blxmWkZFBV155JV177bV09dVXU89eGfQvD91Ox4wjEFBHJjTPH7VpZvXuEyt3wIABXO75F/SkB/7Xrbou8bJCof+s7JsX11bNE9xq+ilamISEfWNWEfV4thscDGZYbSUftmbnwkhWcxZtfWko7z+wzoHV8cY+RWEUrweNTtoIuCe+XUM/+udb6cKLFLMA/fr1s2EfJnRfevxRJVlRflOuhAh3qL2Gfv7AIM7bt28/p0zznQsu7E2P3D+I6yBn+U3dIobE654S11bDu6HU0n+0or62JYsempOvl026iVm/aximDxVEDsabfx5Ox7ERxqiAToJjc9C4g+Np0oQ76ALBLAkg9hVXXEp/fDybjqdps5AGDsZvJ2bS5ZdfqhkWh/Mv7E2P/3ww0TtQr/FygnVOBwdvlJ0M7DUcbCULNP31/OF8FNahewDSYhaW76ctzOPtwXKaiQfDu3XP1RXrDqCDd1HdkznUs1efIFEzMvrSgP5XUGPdcDr5dgdTXAKOt1fTzKfz6MtfupzL8MvFt3r27EMz/pDHHcbP3xUAs+BkoIPb6boWtWSC8wDdwiwYvitqK6ihMZeZJR0MnGOKq51I/OM4H4yud/G0fzy93lJI11x9GfXW9kUCcANvuppWLR3Nk7l+/qTQXk3LGkfRjV+/inoHmNU7ow996ZrLaPXiIiJIbKBuEYTiwjhpInCsVp3mVGoQqxdzG/OsI9d5ZmHytjbBu3IwzeQwqzWL2lYVxuYDuwXaqvlI6aBbrmHpgk2R9gVSUVL0Vdq5Vm7DTgPaqmnz6yU0avgAR7JM2fjWnbddw9NDyctVxO8UtFXTrtfy9f5CxbANiwbTwqYcurxO7Nz1edERs8zuJhTwtfoyPrXurwxj/cp4b6iM27tkL/N7XMjBcPPBZjx4763Uq1eGQ1DAZZf1o4k/vp0O7UiotMFvRuWqb6i4D7cn6KF7B9Kl/eKS1bNnBj36w0FEejhg62LDZOVGz24aF2dn4I1k6ZVjCII6jNcFZgFwYRU22Lc2ZqvT9GJQ3P5GoapIQEd3FTAwXtFaSNdde4UjBbArt9x4FT0/T60Y+/k6AuRpnj6Cvv61Kx17CBV4/XVX0saXxijVGsirIFVcagCtFLPkyvFgvgngy3XlTOtOMwshjl5ikQzXH8SYhTWsj4lZ6JEf7kzQg/fcym42CAsA4x68ZyC9v00tj8TydQCQkne3VNC937qZnQkus09f6te3Lz36w9voqJYUP193AOqLWYyVDrMyqalRSVanmWUdjNpKGhCyWS3KZmGw56uIuCpIDqG0Bodl/c3Lx9I3q25gJvXo2Yf+sfoG2rmihE6JJQw/v1+uVUMmbK+h7a+No5qy66lHD+XAfOfuG2nHqhLRHs20QH4FIZXnp3HTIXyLbVa0YxdqsLEpl67EulaXHAx+TvAC2UKcYmRmRQtoEGlDsI8NsMt1SwW9MCefXpyTT4d3JYj2dbTW1AFgCmlfDR3aWUkvzM6nl+YV0HvbxMGJjwvgYCzXzNI2CzTFuhaGR13zBjlMcEHYTYo7jcwu01WtGGfl06ndShVxZcy+b6vXDU4sKzhg0naAw14LGH0ADjiIdPKbLA3+N3hgG/8Gv2O/iC3XlCXKi4WmHK3W/G95dXfqqQ+U43iQ2kCj6AjJwhg22ukU4EVHzJLHVDNqE3xJBy69sszSR3nYzdU9x4i6gsgzk/EuzlUlHeHcMkKeXxji+dy8Kj45TrZNliPxbhmyrKjux3apnbpqUKzoCAHATWxgFq9ndZpZGjDB+C+88KiXRvQ0v5kbVNMpnjH1jWsAF0qXFET5tqzAN2V5/nsqfAjnQ7ppfBzjcfAOc4Mv5DlOGmj6yNyRfPtOpyUrUoNqbvDe2WLWXTMNx1uwkdH2VllB/z0ZLgTokTFcKF0H7yFcR3X141JBsrQ+nr9ZTR9sKeGNM6bDmyX+f5pVyDccdHki1yw3l80cQyuxnmUPy2XRusXZ9N6mcVbMz0JqeGd9MV+tJw8sgKajpo/VW6k7uazvHACfnKCcqeP4rqI17LqbPQRZfEuZ2tseqQBfXdhnkSaWTvdGxnk908eF8iQtP5DG7/nKCXHLjD0H6uC8m+94dDA4OBc4B2C0EiQLq+6LG7P58mXejtZZNegcpqtN0A1TSmnqwjy9ByMaa2Fi0jgZ0uMyG0WkdxR69r23pDhRlo33cEp9hnEWb5wCWb6suywzRToORXyofrJMOBdmO5pZKcaAePKCoXRtfXm0Tb0zzIoyqUIwaMOmRMMss2dw84tD9e1lXsO4R7k45908GzVh03n5+DlQll9eMpDfMaF25w0YGxkr0y8/9O6Urz1EmUbH8RFWLDyK82ygJc4N4PZrc6iua8zSIdz3b88q4kulIL7G2Vi7aAi9Z26L8cQ/hpMqKIW6cdSZefZVUgjnlxPCsSudIo1QZ46jE8gXao9iVjzdO+tgr/QZY943mEXLm7Po7plFms5dWCKR4ywAlkrypo2jpU1D3EuzWrJ4vuuk15ukmnBUjOidNk2o9/v5/V7tx/tlee9+Gqf3e3mC9ZKQpO4GJ0MALura8epIZ6MMtqDjcAJ2jUXHVrviYOBZh5jQHVBfRn/C3kGtd6EGMcCDePP1CbqnxSRLSod+lgbZ4iXO680cYt7OHKYT5VqQPV3gZFpbJoiJWQtMXfHshZuf84nyo3xunQzIfGy/RFqYCZwH4JkLTTd0eAyGv1xfTj0EnTslWcYTVLubogHb92YXKI9GniJpzeRtVuoyR4+A3QBGvRzaUUnbVo6lI7hJzRA4HYgxVU3mfrSzkl5dlE/71pfaDmC/10lwOgpgbzVfeGkHwppuuH8RO8Yknc1zjBenxSxt/CBdOJyAPdpGBQLQY+BonBBTT74air2H8BIcPPa/j6cnJt5Md9xyCU3+ze10FHhIhSwr9j3DKK/s/eOpfX0J/eDbX6Hr+l9Av/rJjXw9nZ3I9cuKlevXz8OJOGwoYsdCT4AbuuHPBW7ni0w0fbuyI5cXHwXTAMBhXzb+/wPL0cYNNerwwHpIFyqJ3mXmyFwV5DxzzxN4LzTPDO/cRRPuu44+8YlzqHePz9LPfvh12r+5nPfF23TiG1KN2nJRt3fuotXPFdCwzF70mU9/kj73X8+jpybdouPdeql2hOuVqr5GDeJ7GIdG15Er2NA6mH45fwTT0m6k7U7XXYUJ+vzkKiqYXmydDOXCq4ldzHthPIEepSofjWscMO6yk0Y/M5FlGoVDw4/uqqKqsVfQX3/mU/RX532Sbv7a5+npXwyktzeU0qHd1XSivYZO4kDfPg36GbjDe6rprVVj6ZcT/p6+eOnn6JOf/ARddP6n6Zl/G0hHsUPL2yNo62I7nZIUWz9mTLjuRqpgx6PrWhWt1GRCJg2fNlbNtAvaRrQOQ4fMiu5uUl4hRtq4SRqz8Opcsd67rSuDnhTW+Uo9xOOATxO3r4Y+2F5Bjz16E918/UX0t//tr+hTnzqXvnL139F37rqGnpp0K835w2BqnZpDi6blcNjwpyya/O+D6J5v9qcr+n2OzjvvXLrw/E/TiOwMerlhuNofGLR/Lk7VO8JF7yFclbq8ZKU+T2w1kNrNBMeCpcrMB/JBui6oQan+fMANXwXTivk2aXWBfuRsYMcpBoBGnXQ7tFXTsT1VtPbFQvrVIzfRyOwM6vGFv6Zzzz2Hzvsv59IFf/dpVpMZvT5LGT0/Sxdf+BmWxHPOgfr8GxqXfyk9OekW2rVqLJ3CnkMrQd0DSn1W0/tbSnh7ubJVekzaok7q504dG/9DGgk+L9JnltanFhCvpAu3SturgISYY+n6+G618+j0IdL7qQBSdnRPFe18o4SWzMilxx6+kf4xcTUV5PahwQMvoUE3XUy33XgxDc3sRZXFl9PPfng9PTcrl/asL6VjkPDT2W9owDDFxwsAo2AKsMho6GKm5kArLDVZlWdtlQwDvEiXWWZQzCDOvkIdYpAMr4YZZk5HoFKLhvAMszmwEIF+tz0wXfDLETjYmvZq3m17GFvN9lTRBwLwfgj3aYA5WHG2S/dJyotBKrwfpxhmTjnKDgwaYTtfdJWdpKums7VhYUjNLB0qvSpB3d+Af73ByT11sFmMu/RAWR0KV6omMsZRD3SNtIEIZwii1EuqdPpZ93qbD6HFCSdBSG6U1v2GTSe+7eaN1wkd4cOtZe4d8PocFv5z5QdzRlEfTVeXpkqquslm+fpV9QaMEXB3O26alofsjCu/bdlw3oz/sdmvvyTQpxtxyXHkVCiAvcKN1Ph/MPOXTs4gWNC0G5jlM00yL8H/wcjOhs+w5kz+Zx7rzuu5MtlI5UUJN9nGpTL8oXSh8kM4P1+6uFA5Coe2Hd1VwUsgfN+FoMHa1sH0QnM2Fc8oDtBT0lXQ1OdFuswysxeR7TLPKoT7id1PD8wpYLdUzshzr2rN5Ileu+almZZK9bhqRxHIVzkhVSbzmc5hZhMcvFBlpj5M/CTf8L/t1xP3/2Jdz0iRnVnXfzDzPag/4aq7tHTp2XlmOQX7zIqgZ20V9a1N0B8ws2HWawzof4trWzWKTmiif2yQagroYwJMse1+PT+aShLTcBtbM+kpHlPBJuk7BpOCZpbPh3SYFU03BVz3wPsXnlUHGGbCfslt1vr/prCWA4bBpY8aK5lnnuM404vjHppKZ+MtY+JlhPMGyojllfnccnABpmFU1F4zq672A/IfffLOJRfMLQg+HTsvWcYQCu/FnDG2OPEOl3TYtHH8v8Dmb2btGExPZL71eoG93/30HQ/fZnjAaitZum7CaUZhCx5Un8MovWMJbUenHTK1RDMqQD9pYkx8122WL67JAe4nVpRhTJuacpz9GmbcgRCGGPcZRb35Pwm6QSWCYR9sLtHXqipJkm001/wUTB9raeLTKRV0nlmiJ0QDNxEGcMiTUVtJY2cU81V35l5CyywtaZiWOriu2N6h4fZiv3f7OPOebrpQmnTTqXfUETYXf/pp/iNS2mYz77e4OYcKpxdThqSfpJelmwg5HszqimR5nor77OMiPHrTxZOrWCViLkydRRaXcwkpg1pkT1GfCpHel+3Njm1xPTWZDrbE9dg8qfCe/bxxvP5uu7o3EGeo1VYyseKgAW3EOh/+Tj787wiSRhJcXIwPp8MsxbCIcSaM4xSTTAgcllPwbwqzFuZxI+3eDa3bWc9j4fKFPL6sC0xzVWPIuLsMSB/vl+XHx3GoC5wI/I3upudz+B8gbL31sIT3UbZk0oyFeXSnuUpV0CVEt4h+Eq9xnZYsBuGpaJ0aLfNr8dWiHU2bRN4OnA40An9RtKJFbbax6tDaMniLQ/gk+8GNY3kQzb1bz+P5UpBKYpLhk6UxcTZer2vBCcL85vZlw9mTNarcdDa0AY4Ebt3B1QgDp5TQJbh4hGkU0SHy/DTTfG/QME3S1edFusySEiOlyPYSqXeNhHl6GZO+X6sv54EzrsAzf4ImvSjzjL3gYBp6MxbvkhM5HUnx35PlU4BvHX6zgvavGU3blg2zt8H4AElSf845hOf78Bcf6jofSQ9BC01TQ4/IxMTTdp5ZsgAJyfApwGwJwB1QuFwKl/qq6Snj2huGRb0YTggO7H2wtUTt74CkwbbZrQPa+FsnQDoIGgI4ZpYpSw9scVXPW68V8GEL4wxF9YkA3h4Gu/iLxFHTi8XSvEcbn/g+TVLhfF5o6JhZ1vC54OPMu4/342HH+teX06R5I2iFdnWl6+urGtg0uMj8t7irCun9TSV6clhdsZNc8uJg8pzEpOuOCj5Ugc6ATsG2SE/AmjqE3HLcbfvTeSPpi3Xl3BbzV4E+SDqEaOPjlGbCc4AXaTPL4b7QqRqn9LCfztiwqBzzDnHHPjnMlY2bMYb3ei/Xk8D+RLAP+FdwdpGX5vI4B3dK4MYA2BaMfT7aWsp/UahAPQP3weZxnKZ9dRGf1sSVPNjHp8p0J159MPXCPfb/0TCMRs8o5qEJz54b4jptFbPnlkZeGonz6GTDAKRmlrE9FqSBNPrZ4FR8BOZdhNq2IS0cDwA25ePfb/60YBi7+dip6mzG8UFvfTMbJpEODsCaxUPYxsDmWViczTg4L7x1WTszMn+sfP1t1AGSBHf8PxYMo/EzR/PlLaizOfHB0uC022+zZJxPG0ljL63Pi/SZFRUeET1yOGyFHSdDf1zG2fcoDco3Ny+DaeUzx9Cv549gw437IXgW317uBSKaGW3lLiu8cVa02tQMURDZGpPOlmXKEGqYZ8kXqf8MwYD+sfkjqGRGMfWvK2eJif77yqODaZNkoBPn0cN5lnk6ySxzaQn3CC09+IjpJbK3GAmMJAxlRBJncCptvAzFNCVtl9VWsquPFWjcEADib2odrLZsW8MvjH9AMhzG+WAZGj2vw2mYVty7nsWOA7xW/M8y6qIkSUpH1I6IHhK0DZI0sp1f0kPmNeXp9wA/OmYWP/vGM4RLD5jpHQHUY22CLny2iq6sraAx04vpkbn51NCUSyta1alBqCgMRjnU0hc9m3jxbN81TudFWTgVg/8A+99zC3ia6PK6SrpocpX6F54gpGp/qriOwOSN88JAUmYZDltRtdJj1Jr7HIqXRlSpvnh5MRDp0Kv5arfJlbzUgM0muPUSF1U+1TCMpi7Io4WNObS0KZttC5wAjOPgsADwDBzicGpzQWMOTVmQx3cnPjIvn/5hVhFLMf5cAJ0T34rsUaC+AufTQUlLPE+IRj7IvJ2SrEhEuwNC6iJ9ACHx9+e4LsfsDcdFKtfXl/J+8bxpY1kqSmeMoaqZo9kZAOAZOMQhDf5JD1cb4WAg2oiyTLnOWKlLEGprCJcCfF50iVlGXM2zjfMq5cSZspWqi5UZBD+d+26IjYlThHiXRFd2MJ4mVZnx9xT0kHSQOC+dcaZcnF+esG0+LzR0yCzXwzMiLTwZ6wkJj0imc9SJ9or8/Fb1hD0kqTLiOM+zkmnkd/00oXJtWh3G0vkqUtfdaX8KOvj1kuUYp8TnQ1rMOgt/cXCWWWcQnGXWGQRnmXUGwVlmnUFwlllnEJxl1hkE/wfI/HTLScuWVwAAAABJRU5ErkJggg==", "duration": 3000})
+
+
+def match_cron_field(field_val, current_val):
+    if field_val == '*':
+        return True
+    if field_val.startswith('*/'):
+        step = int(field_val[2:])
+        return current_val % step == 0
+    return str(current_val) == field_val
+
+
+def check_schedule(cron_expr, now=None):
+    if not cron_expr or not isinstance(cron_expr, str):
+        return False
+    if now is None:
+        now = datetime.now()
+
+    fields = cron_expr.strip().split()
+    if len(fields) != 5:
+        return False
+
+    minute, hour, dom, mon, wday = fields
+    mapping = [
+        (minute, now.minute),
+        (hour, now.hour),
+        (dom, now.day),
+        (mon, now.month),
+        (wday, now.isoweekday() % 7)
+    ]
+
+    for cron_val, current_val in mapping:
+        if not match_cron_field(cron_val, current_val):
+            return False
+    return True
+
+
+async def update_servers_loop():
+    global ALL_SERVERS
+    MATRIX = [
+        {"id": "map-0", "endpoint": "florrio-map-0", "tags": {"dungeon": "garden"}},
+        {"id": "map-1", "endpoint": "florrio-map-1", "tags": {"dungeon": "desert"}},
+        {"id": "map-2", "endpoint": "florrio-map-2", "tags": {"dungeon": "ocean"}},
+        {"id": "map-3", "endpoint": "florrio-map-3", "tags": {"dungeon": "jungle"}},
+        {"id": "map-4", "endpoint": "florrio-map-4",
+            "tags": {"dungeon": "ant_hell"}},
+        {"id": "map-5", "endpoint": "florrio-map-5", "tags": {"dungeon": "hel"}},
+        {"id": "map-6", "endpoint": "florrio-map-6", "tags": {"dungeon": "sewers"}},
+        {"id": "map-7", "endpoint": "florrio-map-7", "tags": {"dungeon": "factory"}},
+        {"id": "map-8", "endpoint": "florrio-map-8", "tags": {"dungeon": "pyramid"}},
+    ]
+    server_keys = {
+        "vultr-miami": "us",
+        "vultr-frankfurt": "eu",
+        "vultr-tokyo": "as"
+    }
+    while True:
+        servers = []
+        for server in MATRIX:
+            found = {"us": None, "eu": None, "as": None}
+            tries = 0
+            while tries < 5 and not all(found.values()):
+                endpoint = f"https://api.n.m28.io/endpoint/{server['endpoint']}-green/findEach/"
+                tags = server['tags']
+                try:
+                    resp = await asyncio.to_thread(requests.get, endpoint, params=tags)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        servers_in_response = data.get('servers', {})
+                        for key, val in servers_in_response.items():
+                            name = server_keys.get(key)
+                            if name and not found[name]:
+                                found[name] = val.get('id')
+                    else:
+                        await asyncio.sleep(1)
+                        tries += 1
+                        continue
+                except Exception:
+                    await asyncio.sleep(1)
+                    tries += 1
+                    continue
+                await asyncio.sleep(1)
+                tries += 1
+            for name, sid in found.items():
+                if sid:
+                    servers.append({
+                        "id": sid,
+                        "name": name,
+                        "map": server["id"],
+                        "mapName": server["tags"]["dungeon"]
+                    })
+        ALL_SERVERS = servers
+        await asyncio.sleep(10)
+
+
+def find_server_by_id(server_id, all_servers=None):
+    if all_servers is None:
+        all_servers = ALL_SERVERS
+    if not all_servers:
+        return {"id": server_id, "name": None, "map": None, "mapName": None}
+    for server in all_servers:
+        if server['id'] == server_id:
+            return server
+    return {"id": server_id, "name": None, "map": None, "mapName": None}

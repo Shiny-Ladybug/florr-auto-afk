@@ -39,6 +39,8 @@ def start_extension_server():
         connected = True
         experimental.set_connected(True)
 
+        asyncio.create_task(experimental.update_servers_loop())
+
         should_block_alpha = experimental.get_block_alpha()
         health_ping = {}
         slot_ping = {}
@@ -46,6 +48,7 @@ def start_extension_server():
         squad_ping = {}
         position_ping = {}
         track_ping = {}
+        server_ping = {}
 
         track_list = []
         assembled_chat = ""
@@ -57,10 +60,30 @@ def start_extension_server():
         last_position: tuple[float, float] = (None, None)
         last_position_time = monotonic()
         position_speed = 0.0
+        server = {"id": None, "name": None, "map": None, "mapName": None}
+
         squad_position: list[tuple[float, float]] = []
 
         message_stack = []
         debounce_task = None
+
+        async def schedule_execution():
+            nonlocal health_ping, slot_ping, chat_ping, squad_ping, position_ping, track_ping, server_ping
+            nonlocal track_list, assembled_chat, health_speed, inventory, last_health, last_health_time
+            nonlocal self_position, last_position, last_position_time, position_speed, squad_position, server
+            nonlocal websocket
+
+            while True:
+                extensions = experimental.get_installed_extensions()
+                for ext in extensions:
+                    if ext["enabled"] and not ext["events"] and experimental.check_schedule(ext["schedule"]):
+                        registry = extension.load_extension(ext["name"])
+                        args = []
+                        for arg_expr in registry["args"]:
+                            args.append(eval(arg_expr, globals(), locals()))
+                        asyncio.create_task(
+                            extension.execute_extension(registry, args))
+                await asyncio.sleep(60)
 
         async def process_message_stack(websocket):
             nonlocal message_stack
@@ -96,6 +119,23 @@ def start_extension_server():
             await asyncio.sleep(get_config()['extensions']['autoChat']['chatCooldown'])
             await process_message_stack(websocket)
 
+        asyncio.create_task(schedule_execution())
+
+        message: dict = await websocket.receive_json()
+
+        if message.get("type") != "version":
+            log("You are not using the latest version of florr-auto-afk-extension",
+                "CRITICAL", save=False)
+            await websocket.close(code=1008, reason="Invalid initial message type")
+            return
+
+        version = message.get("version")
+        if version != constants.VERSION_INFO:
+            log(f"florr-auto-afk-extension version mismatch: expected v{constants.VERSION_INFO}, got v{version}",
+                "CRITICAL", save=False)
+            await websocket.close(code=1008, reason="Version mismatch")
+            return
+
         try:
             while True:
                 extensions = experimental.get_installed_extensions()
@@ -108,6 +148,7 @@ def start_extension_server():
                     experimental.switch_send(False)
                     await websocket.send_json({"command": "send"})
                     message = await websocket.receive_json()
+
                 message: dict = await websocket.receive_json()
 
                 if message.get("type") == "florrHealth":
@@ -127,20 +168,21 @@ def start_extension_server():
                 elif message.get("type") == "florrMessages":
                     chat_ping = message
                     assembled_chat = f"[{chat_ping['content']['area']}] {chat_ping['content']['user']}: {chat_ping['content']['message']}"
-                    log(assembled_chat, "CHAT", save=False)
+                    log(assembled_chat, "CHAT", save=False, chat=True)
                     if get_config()['extensions']['autoChat']["enable"]:
                         if get_config()['extensions']['autoChat']['selfUsername'] != "enter <username> here or chat will respond to your own messages":
                             if chat_ping['content']['area'] in get_config()['extensions']['autoChat']['chatScope'] and chat_ping['content']['user'] != get_config()['extensions']['autoChat']['selfUsername']:
                                 if (get_config()['extensions']['autoChat']["chatMaxDistance"] and chat_ping['content']['userPosition'] is not None and chat_ping['content']['userPosition']['distance'] < get_config()['extensions']['autoChat']["chatMaxDistance"]) or not get_config()['extensions']['autoChat']["chatMaxDistance"]:
                                     if (get_config()["extensions"]['autoChat']['chatWhitelist'] != [] and experimental.re_match(chat_ping['content']['user'], get_config()["extensions"]['autoChat']['chatWhitelist'])) or (get_config()["extensions"]['autoChat']['chatWhitelist'] == [] and not experimental.re_match(chat_ping['content']['user'], get_config()["extensions"]['autoChat']['chatBlacklist'])):
-                                        message_stack.append(chat_ping)
-                                        await experimental.send_notify(websocket, chat_ping['content']['user'], chat_ping['content']['message'])
-                                        log(
-                                            f"Message added to stack: {assembled_chat}", "EVENT", save=False)
-                                        if debounce_task and not debounce_task.done():
-                                            debounce_task.cancel()
-                                        debounce_task = asyncio.create_task(
-                                            process_message(websocket))
+                                        if chat_ping['content']['area'] != "$system":
+                                            message_stack.append(chat_ping)
+                                            await experimental.send_notify(websocket, chat_ping['content']['user'], chat_ping['content']['message'])
+                                            log(
+                                                f"Message added to stack: {assembled_chat}", "EVENT", save=False)
+                                            if debounce_task and not debounce_task.done():
+                                                debounce_task.cancel()
+                                            debounce_task = asyncio.create_task(
+                                                process_message(websocket))
 
                 elif message.get("type") == "florrSquads":
                     global current_path_task
@@ -210,6 +252,11 @@ def start_extension_server():
                 elif message.get("type") == "aspac":
                     experimental.set_aspac(True)
 
+                elif message.get("type") == "updateServer":
+                    server_ping = message
+                    server = experimental.find_server_by_id(
+                        message['serverId'])
+
                 for ext in extensions:
                     if ext["enabled"] and message.get("type") in ext["events"]:
                         registry = extension.load_extension(
@@ -242,6 +289,7 @@ def start_extension_server():
                 "CRITICAL", save=False)
 
     experimental.initiate_swap()
+
     run(app, host=get_config()['extensions']['host'], port=get_config()[
         'extensions']['port'], log_level="critical")
 

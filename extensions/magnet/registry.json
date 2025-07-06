@@ -1,0 +1,13 @@
+{
+    "name": "magnet",
+    "description": "Auto switch magnet every 30 seconds",
+    "author": "1919810",
+    "version": "1.9.1",
+    "enabled": false,
+    "events": [],
+    "schedule": "*/1 * * * *",
+    "args": [
+        "inventory",
+        "websocket"
+    ]
+}

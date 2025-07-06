@@ -4,7 +4,7 @@ import asyncio
 
 
 def load_extension(name):
-    with open(f"./extensions/{name}/registry.json", "r") as f:
+    with open(f"./extensions/{name}/registry.json", "r", encoding="utf-8") as f:
         registry = json.load(f)
     return registry
 

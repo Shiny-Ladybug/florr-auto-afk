@@ -79,11 +79,10 @@
         "skipUpdate": false,
         "environment": false,
         "debug": false,
-        "windowSizeTolerance": 0.1,
-        "windowSizeRatio": [
-            0.787,
-            1
-        ]
+        "forceYOLO": {
+            "det": false,
+            "seg": false
+        }
     },
     "yoloConfig": {
         "segModel": "./models/afk-seg.pt",

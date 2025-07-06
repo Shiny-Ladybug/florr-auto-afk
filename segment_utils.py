@@ -536,6 +536,268 @@ class AFK_Segment:
         return self.width
 
 
+class AFK_BW:
+    def __init__(self, image):
+        self.offset = [0, 0]
+        self.raw_image = image.copy()
+        self.image = None
+        self.start_p = None
+        self.end_p = None
+        self.length: float = None
+        self.difficulty: float = None
+        self.width: float = None
+        self.extend_point: tuple[int, int] = None
+        self.sorted_points: list[tuple[int, int]] = None
+        self.rdp_points: list[tuple[int, int]] = None
+        self.extend_point: tuple[int, int] = None
+        self.white_labels = None
+        self.max_white_label = None
+        self.difficulty = None
+        self.start_color = (0, 0, 0)
+        self.inverse_start_color = (255, 255, 255)
+
+    def crop_nb_image(self):
+        gray = cv2.cvtColor(self.raw_image, cv2.COLOR_BGR2GRAY)
+        _, thresh = cv2.threshold(gray, 10, 255, cv2.THRESH_BINARY_INV)
+        contours, _ = cv2.findContours(
+            thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            c = max(contours, key=cv2.contourArea)
+            x, y, w, h = cv2.boundingRect(c)
+
+            cropped = self.raw_image[y:y+h, x:x+w]
+            self.offset[0] += x
+            self.offset[1] += y
+            self.raw_image = cropped
+        ratio = self.raw_image.shape[1] / self.raw_image.shape[0]
+        if (0.787*(1-0.1) < ratio < 0.787*(1+0.1)):
+            h = int(self.raw_image.shape[0] * 0.205)
+            self.raw_image = self.raw_image[h:, :]
+            self.offset[1] += h
+        return self
+
+    def rarity_colors(self):
+        def hex2bgr(hex_color):
+            hex_color = hex_color.lstrip('#')
+            return tuple(int(hex_color[i:i + 2], 16) for i in (4, 2, 0))
+
+        return list({
+            "common": hex2bgr("#7EEF6D"),
+            "unusual": hex2bgr("#FFE65D"),
+            "rare": hex2bgr("#4d52e3"),
+            "epic": hex2bgr("#861FDE"),
+            "legendary": hex2bgr("#DE1F1F"),
+            "mythic": hex2bgr("#1fdbde"),
+            "ultra": hex2bgr("#ff2b75"),
+            "super": hex2bgr("#2bffa3")
+        }.values())
+
+    def get_mask(self):
+        white_mask = cv2.inRange(
+            self.image, (255, 255, 255), (255, 255, 255))
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+            white_mask, connectivity=8)
+        if num_labels <= 1:
+            return 0, None, None
+        max_idx = 1 + np.argmax(stats[1:, 4])
+        contour_img = None
+        mask = (labels == max_idx).astype(np.uint8) * 255
+        contours, _ = cv2.findContours(
+            mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contour_img = self.image.copy()
+        cv2.drawContours(contour_img, contours, -1, (0, 0, 255), 2)
+        self.white_labels = labels
+        self.max_white_label = max_idx
+
+    def normalize(self, threshold=40):
+        image = self.raw_image.copy()
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        color_diff = np.abs(image[:, :, 0] - image[:, :, 1]) + np.abs(
+            image[:, :, 1] - image[:, :, 2]) + np.abs(image[:, :, 0] - image[:, :, 2])
+        gray_mask = color_diff == 0
+        output = np.ones_like(image) * 255
+        output[gray_mask & (gray > threshold)] = [255, 255, 255]
+        output[gray_mask & (gray <= threshold)] = [0, 0, 0]
+        output[~gray_mask] = [255, 255, 255]
+        self.image = output
+        return self
+
+    def get_end(self):
+        white_mask = (self.white_labels == self.max_white_label).astype(
+            np.uint8) * 255
+        contours, hierarchy = cv2.findContours(
+            white_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+        if hierarchy is None:
+            return 0, None
+        hole_areas = []
+        hole_centers = []
+        for i, h in enumerate(hierarchy[0]):
+            if h[3] != -1:
+                area = cv2.contourArea(contours[i])
+                M = cv2.moments(contours[i])
+                if M["m00"] != 0:
+                    cx = int(M["m10"] / M["m00"])
+                    cy = int(M["m01"] / M["m00"])
+                else:
+                    cx, cy = 0, 0
+                hole_areas.append(area)
+                hole_centers.append((cx, cy))
+        if not hole_areas:
+            return 0, None
+        max_idx = int(np.argmax(hole_areas))
+        self.end_p = hole_centers[max_idx]
+        return self.end_p
+
+    def get_start(self, color_tol=40):
+        max_area = 0
+        best_center = None
+        max_color = (0, 0, 0)
+        for color in self.rarity_colors():
+            lower = np.array([max(0, c - color_tol)
+                             for c in color], dtype=np.uint8)
+            upper = np.array([min(255, c + color_tol)
+                             for c in color], dtype=np.uint8)
+            mask = cv2.inRange(self.raw_image, lower, upper)
+            num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+                mask, connectivity=8)
+            if num_labels <= 1:
+                continue
+            max_idx = 1 + np.argmax(stats[1:, 4])
+            area = stats[max_idx, 4]
+            center = tuple(np.round(centroids[max_idx]).astype(int))
+            if area > max_area:
+                max_area = area
+                best_center = center
+                max_color = color
+
+        if best_center is not None:
+            self.start_p = best_center
+            self.start_color = max_color
+            self.inverse_start_color = tuple(
+                255 - c for c in max_color)
+            return self.start_p
+        return None
+
+    def dijkstra(self):
+        mask = (self.white_labels == self.max_white_label).astype(
+            np.uint8) * 255
+        contours, _ = cv2.findContours(
+            mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        area_mask = np.zeros_like(mask)
+        cv2.drawContours(area_mask, contours, -1, 255, -1)
+
+        dt = cv2.distanceTransform(area_mask, cv2.DIST_L2, 5)
+        h, w = dt.shape
+        sx, sy = int(round(self.start_p[0])), int(round(self.start_p[1]))
+        ex, ey = int(round(self.end_p[0])), int(round(self.end_p[1]))
+
+        if area_mask[sy, sx] == 0 or area_mask[ey, ex] == 0:
+            return None
+
+        dist_map = -np.ones((h, w), dtype=np.float32)
+        dist_map[sy, sx] = dt[sy, sx]
+        prev = {}
+        pq = [(-dt[sy, sx], (sx, sy))]
+        directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+
+        while pq:
+            neg_dist, (x, y) = heappop(pq)
+            curr = -neg_dist
+            if (x, y) == (ex, ey):
+                break
+            if curr < dist_map[y, x]:
+                continue
+            for dx, dy in directions:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < w and 0 <= ny < h and area_mask[ny, nx] == 255:
+                    new_w = min(curr, dt[ny, nx])
+                    if new_w > dist_map[ny, nx]:
+                        dist_map[ny, nx] = new_w
+                        prev[(nx, ny)] = (x, y)
+                        heappush(pq, (-new_w, (nx, ny)))
+
+        path = []
+        cur = (ex, ey)
+        if cur in prev or cur == (sx, sy):
+            while cur != (sx, sy):
+                path.append(cur)
+                cur = prev[cur]
+            path.append((sx, sy))
+            path.reverse()
+            self.sorted_points = path
+            return path
+        return None
+
+    def rdp(self, epsilon=1):
+        if self.sorted_points is None:
+            return None
+        self.rdp_points = rdp(self.sorted_points, epsilon=epsilon)
+        return self.rdp_points
+
+    def extend(self, length) -> None:
+        if self.rdp_points:
+            if len(self.rdp_points) < 2:
+                self.extend_point = self.rdp_points[0]
+                return
+            end = self.rdp_points[-1]
+            last = self.rdp_points[-2]
+            l_l2_dist = distance.euclidean(end, last)
+            sine_theta = (end[1] - last[1]) / l_l2_dist
+            cosine_theta = (end[0] - last[0]) / l_l2_dist
+            self.extend_point = (
+                end[0] + length * cosine_theta, end[1] + length * sine_theta)
+
+    def get_final(self, top_left_bound: tuple[int, int] = (0, 0), precise=True) -> list[tuple[int, int]]:
+        if self.rdp_points:
+            if self.extend_point is not None:
+                self.rdp_points.append(self.extend_point)
+            ret = [(p[0] + top_left_bound[0], p[1] + top_left_bound[1])
+                   for p in self.rdp_points]
+        elif self.sorted:
+            if self.extend_point is not None:
+                self.sorted_points.append(self.extend_point)
+            ret = [(p[0] + top_left_bound[0], p[1] + top_left_bound[1])
+                   for p in self.sorted_points]
+        else:
+            ret = []
+        if precise:
+            return ret
+        else:
+            return [(int(p[0]), int(p[1])) for p in ret]
+
+    def get_length(self) -> float:
+        if self.length:
+            return self.length
+        if self.rdp_points:
+            self.length = sum(distance.euclidean(self.rdp_points[i], self.rdp_points[i + 1])
+                              for i in range(len(self.rdp_points) - 1))
+        return self.length
+
+    def get_width(self):
+        if self.width:
+            return self.width
+        mask = (self.white_labels == self.max_white_label).astype(np.uint8)
+        skeleton = skimage_skeletonize(mask > 0).astype(np.uint8)
+        dist_map = cv2.distanceTransform(mask, cv2.DIST_L2, 5)
+        thickness_list = dist_map[skeleton > 0] * 2
+        self.width = np.mean(thickness_list)
+        return self.width
+
+    def get_difficulty(self, density_r=50) -> float:
+        if self.difficulty is not None:
+            return self.difficulty
+        if self.rdp_points:
+            points = np.array(self.rdp_points)
+            tree = KDTree(points)
+            neighbors = tree.query_ball_point(points, r=density_r)
+            counts = np.array([len(n)-1 for n in neighbors])
+            density = np.mean(counts)
+            lwr = self.get_length()/self.width
+            self.difficulty = (max(1, density*3)*lwr *
+                               (len(self.rdp_points)**0.5))**0.5
+            return self.difficulty
+
+
 def apply_mouse_movement(points, speed=get_config()["advanced"]["mouseSpeed"], active=False):
     pyautogui.moveTo(points[0][0], points[0][1], duration=0.5)
     pyautogui.mouseUp(button="left")
@@ -693,7 +955,7 @@ def detect_afk_window(img, afk_det_model):
     window_width = windows_pos[1][0] - windows_pos[0][0]
     window_height = windows_pos[1][1] - windows_pos[0][1]
     ratio = window_width / window_height
-    if (get_config()["advanced"]["windowSizeRatio"][0]*(1-get_config()["advanced"]["windowSizeTolerance"]) < ratio < get_config()["advanced"]["windowSizeRatio"][0]*(1+get_config()["advanced"]["windowSizeTolerance"])) or (get_config()["advanced"]["windowSizeRatio"][1]*(1-get_config()["advanced"]["windowSizeTolerance"]) < ratio < get_config()["advanced"]["windowSizeRatio"][1]*(1+get_config()["advanced"]["windowSizeTolerance"])):
+    if (1*(1-0.1) < ratio < 1*(1+0.1)) or (0.787*(1-0.1) < ratio < 0.787*(1+0.1)):
         return windows_pos
     return None
 
@@ -906,6 +1168,20 @@ def export_segmentation_to_label(results, image, now, epsilon=1):
     return labelme_data
 
 
+def export_annotation_to_label(image, difficulty, now):
+    image_resolution = f"{image.shape[1]}x{image.shape[0]}"
+    client_resolution = f"{pyautogui.size().width}x{pyautogui.size().height}"
+    label = {
+        "timestamp": now,
+        "difficulty": difficulty,
+        "imageResolution": image_resolution,
+        "clientResolution": client_resolution,
+        "isBlockingAlpha": get_config()['extensions']['bgRemove'],
+        "version": f"v{constants.VERSION_INFO}"
+    }
+    return label
+
+
 def export_detection_to_label(packs, image, now):
     """
     classes = ["Window", "Start", "End"]
@@ -1001,9 +1277,9 @@ def draw_annotated_image(ori_image, line, start_p, end_p, window_pos, start_colo
 
     cv2.putText(image, f'Method: {sort_method}', (window_pos[0][0]+10, window_pos[1][1]-46), cv2.FONT_HERSHEY_SIMPLEX,
                 0.5, (255, 255, 255))
-    cv2.putText(image, f'Difficulty: {round(difficulty,2)}', (window_pos[0][0]+10, window_pos[1][1]-28), cv2.FONT_HERSHEY_SIMPLEX,
+    cv2.putText(image, f'Difficulty: {difficulty:.2f}', (window_pos[0][0]+10, window_pos[1][1]-28), cv2.FONT_HERSHEY_SIMPLEX,
                 0.5, (255, 255, 255))
-    cv2.putText(image, f'P_w: {round(path_width,2)}, P_l: {round(path_length,2)}', (window_pos[0][0]+10, window_pos[1][1]-10), cv2.FONT_HERSHEY_SIMPLEX,
+    cv2.putText(image, f'P_w: {path_width:.2f}, P_l: {path_length:.2f}', (window_pos[0][0]+10, window_pos[1][1]-10), cv2.FONT_HERSHEY_SIMPLEX,
                 0.5, (255, 255, 255))
     return image
 
@@ -1047,12 +1323,16 @@ def gh_upload_file(repo, target_path, content, message):
 
 
 def gh_upload_dataset(now):
-    app_id = 1375071
-    private_key = constants.GITHUB_TOKEN
-    integration = GithubIntegration(app_id, private_key)
-    install = integration.get_repo_installation(
-        constants.DATASET_REPO.split('/')[0], constants.DATASET_REPO.split('/')[1])
-    token = integration.get_access_token(install.id).token
+    try:
+        app_id = 1375071
+        private_key = constants.GITHUB_TOKEN
+        integration = GithubIntegration(app_id, private_key)
+        install = integration.get_repo_installation(
+            constants.DATASET_REPO.split('/')[0], constants.DATASET_REPO.split('/')[1])
+        token = integration.get_access_token(install.id).token
+    except Exception as e:
+        log(f"Private key expired, {e}", "ERROR")
+        return None
     g = Github(token)
     repo = g.get_repo(constants.DATASET_REPO)
     alias = str(uuid4()).replace("-", "")
@@ -1063,11 +1343,16 @@ def gh_upload_dataset(now):
         seg_label_bytes = f.read().encode('utf-8')
     with open(f"./train/detection/{now}.txt", "r", encoding='utf-8') as f:
         det_label_bytes = f.read().encode('utf-8')
+    with open(f"./train/annotation/{now}.json", "r") as f:
+        anno_label_bytes = f.read().encode('utf-8')
+
     gh_upload_file(repo, f"./{alias}/{alias}.png",
                    img_bytes, f"{date} {alias[:5]} Image")
-    gh_upload_file(repo, f"./{alias}/{alias}.json",
+    gh_upload_file(repo, f"./{alias}/{alias}_seg.json",
                    seg_label_bytes, f"{date} {alias[:5]} Seg")
-    gh_upload_file(repo, f"./{alias}/{alias}.txt",
+    gh_upload_file(repo, f"./{alias}/{alias}_det.txt",
                    det_label_bytes, f"{date} {alias[:5]} Det")
+    gh_upload_file(repo, f"./{alias}/{alias}_anno.json",
+                   anno_label_bytes, f"{date} {alias[:5]} Anno")
     log(f"Uploaded dataset to GitHub with hash {alias}", "INFO")
     return alias

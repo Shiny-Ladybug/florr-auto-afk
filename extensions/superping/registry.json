@@ -1,0 +1,16 @@
+{
+    "name": "superping",
+    "description": "Push super ping to [guild] chat when super spawns",
+    "author": "Not 可爱猫娘",
+    "version": "1.0.0",
+    "enabled": false,
+    "events": [
+        "florrMessages"
+    ],
+    "schedule": "* * * * *",
+    "args": [
+        "chat_ping",
+        "server",
+        "websocket"
+    ]
+}

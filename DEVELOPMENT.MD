@@ -25,6 +25,7 @@ Anyway I want to say is comments are not allowed in JSON, the comments here are 
     "version": "1.1.4.5.1.4 or other something",
     "enabled": true,
     "events": [], // to declare when the extension should run, available choices are "florrHealth", "florrSlots", "florrMessages", "florrSquads" and "florrPosition"
+    "schedule": "* * * * *", // syntax same as cron schedule, only work while `events` is an empty list
     "args": [], // what args in Python will pass to the extension
 }
 ```
@@ -134,8 +135,8 @@ Format:
 {
     "type": "florrMessages",
     "content": {
-        "area": "Local", // "Local", "Squad", "Guild"
-        "user": "<username>",
+        "area": "Local", // "Local", "Squad", "Guild", "$system"
+        "user": "<username>", // "$system"
         "message": "<text>",
         "userPosition": { // this may be null (None)
             "x": 214.35,
@@ -238,6 +239,21 @@ await websocket.send_json({"command": "track", "players": ["BF52", "IDontLikeToE
         "IDontLikeToExist": null // None in Python
     }
 }
+```
+
+### updateServer
+
+#### server_ping: dict
+
+```json
+{"type": "updateServer", "serverId": "xxxx"}
+```
+
+#### server: dict
+
+```json
+{"id": "xxxx", "name": null, "map": null, "mapName": null}
+// {'id': '1qz8', 'name': 'us', 'map': 'map-0', 'mapName': 'garden'}
 ```
 
 ## Example

@@ -61,7 +61,5 @@ advanced.mouseSpeed=鼠标速度
 advanced.skipUpdate=跳过更新
 advanced.environment=仅用于记录你是否测试了环境
 advanced.debug=如果你遇到任何问题，请尝试打开此选项并将`debug.log`和`latest.log`发送给开发者
-advanced.windowSizeTolerance=窗口大小的容差
-advanced.windowSizeRatio=AFK窗口大小的比例，用于防止检测到其他相似窗口（注：你最好在使用插件时不打开`可爱猫娘`的`super ping`窗口，否则大概率你的 images 文件夹将被塞满 sping 的截图）
 yoloConfig.segModel=分割模型路径
 yoloConfig.detModel=检测模型路径

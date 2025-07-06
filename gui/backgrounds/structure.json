@@ -1,7 +1,7 @@
 [
     {
         "name": "Crystal",
-        "path": "./gui/backgrounds/crystal.png",
+        "path": "./gui/backgrounds/Crystal.png",
         "weight": 1,
         "type": "tile"
     },
